@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Infografía — Gestor de viajes</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; inline-size: 1440px; padding: 40px 40px 36px;
+    background: #fff; color: #12222f;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .cabecera { border-block-end: 3px solid #1565c0; padding-block-end: 14px; margin-block-end: 26px; }
+  .cabecera h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.02em; }
+  .cabecera p { margin: 0; color: #5a6a7a; font-size: 15px; }
+  .cabecera .materia { float: inline-end; color: #8593a2; font-size: 12px; text-align: end; line-height: 1.5; text-transform: uppercase; letter-spacing: .06em; }
+  .paneles { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 18px; margin-block-start: 26px; }
+  .panel { border: 1px solid #d5dce6; border-radius: 10px; padding: 16px 18px; background: #f7f9fc; }
+  .panel h2 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .07em; color: #10457f; }
+  .panel table { inline-size: 100%; border-collapse: collapse; font-size: 13px; }
+  .panel td { padding: 5px 0; vertical-align: top; }
+  .panel td:first-child { inline-size: 108px; padding-inline-end: 10px; }
+  .panel p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: #35485a; }
+  .panel p:last-child { margin-block-end: 0; }
+  .pastilla { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+  .p-load { background: #eef1f5; color: #5a6a7a; }
+  .p-ok { background: #e6f5f0; color: #17795e; }
+  .p-fail { background: #fceceb; color: #a32b2b; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 700; color: #12222f; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #eef1f5; padding: 1px 4px; border-radius: 3px; }
+  .pie { margin-block-start: 22px; padding-block-start: 12px; border-block-start: 1px solid #e3e8ef; color: #8593a2; font-size: 11.5px; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<div class="cabecera">
+  <div class="materia">Programación Distribuida y Componentes<br>Entrega 0 · Plan de proyecto</div>
+  <h1>Gestor de viajes</h1>
+  <p>Buscador de vuelos y hospedaje diseñado alrededor de un solo requisito: <strong>que la caída de un servicio no voltee al sistema</strong>.</p>
+</div>
+
+<svg viewBox="0 0 1360 620" width="1360" height="620" role="img"
+     aria-label="Arquitectura: navegador, agregador, microservicios y fuentes de datos">
+  <defs>
+    <marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8593a2"/>
+    </marker>
+    <marker id="fr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c98b88"/>
+    </marker>
+  </defs>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+
+    <!-- rótulos de columna -->
+    <g font-size="11.5" font-weight="700" fill="#8593a2" letter-spacing="1.4" text-anchor="middle">
+      <text x="155" y="20">CLIENTE</text>
+      <text x="470" y="20">AGREGADOR</text>
+      <text x="795" y="20">MICROSERVICIOS</text>
+      <text x="1245" y="20">FUENTES DE DATOS</text>
+    </g>
+
+    <!-- ============ COL 1 · Navegador ============ -->
+    <rect x="20" y="36" width="270" height="360" rx="12" fill="#fff" stroke="#c3ccda" stroke-width="1.5"/>
+    <text x="40" y="62" font-size="14.5" font-weight="700" fill="#12222f">Navegador · React + Vite</text>
+    <text x="40" y="82" font-size="11.5" fill="#8593a2">Una sección por vertical</text>
+
+    <rect x="40" y="98" width="230" height="94" rx="9" fill="#f4fbf8" stroke="#17795e" stroke-width="1.5"/>
+    <text x="56" y="122" font-size="13.5" font-weight="700" fill="#12222f">✈  Vuelos</text>
+    <rect x="188" y="108" width="66" height="19" rx="9.5" fill="#e6f5f0"/>
+    <text x="221" y="121.5" font-size="10.5" font-weight="700" fill="#17795e" text-anchor="middle">ok</text>
+    <g fill="#cfe6dd">
+      <rect x="56" y="136" width="198" height="7" rx="3.5"/>
+      <rect x="56" y="151" width="198" height="7" rx="3.5"/>
+      <rect x="56" y="166" width="140" height="7" rx="3.5"/>
+    </g>
+    <text x="56" y="185" font-size="10.5" fill="#5a6a7a">8 resultados · 620 ms</text>
+
+    <rect x="40" y="208" width="230" height="94" rx="9" fill="#fdf6f5" stroke="#a32b2b" stroke-width="1.5"/>
+    <text x="56" y="232" font-size="13.5" font-weight="700" fill="#12222f">⌂  Hospedaje</text>
+    <rect x="152" y="218" width="102" height="19" rx="9.5" fill="#fceceb"/>
+    <text x="203" y="231.5" font-size="10.5" font-weight="700" fill="#a32b2b" text-anchor="middle">no disponible</text>
+    <text x="56" y="256" font-size="11.5" fill="#a32b2b">El servicio no responde.</text>
+    <text x="56" y="273" font-size="11.5" fill="#5a6a7a">El resto de tu búsqueda</text>
+    <text x="56" y="288" font-size="11.5" fill="#5a6a7a">no se vio afectado.</text>
+
+    <rect x="40" y="318" width="230" height="58" rx="9" fill="#f7f9fc" stroke="#d5dce6" stroke-dasharray="4 3"/>
+    <text x="56" y="339" font-size="11" fill="#5a6a7a">El fallo queda encerrado en</text>
+    <text x="56" y="355" font-size="11" fill="#5a6a7a">su sección. La pantalla sigue</text>
+    <text x="56" y="371" font-size="11" fill="#5a6a7a">usable.</text>
+
+    <!-- flecha cliente → agregador -->
+    <path d="M296 190 H 350" stroke="#8593a2" stroke-width="1.6" fill="none" marker-end="url(#f)"/>
+    <text x="323" y="172" font-size="10.5" fill="#5a6a7a" text-anchor="middle" font-weight="700">1 request</text>
+    <text x="323" y="185" font-size="10.5" fill="#5a6a7a" text-anchor="middle" font-weight="700">por vertical</text>
+    <text x="323" y="209" font-size="10" fill="#8593a2" text-anchor="middle">en paralelo</text>
+
+    <!-- ============ COL 2 · Agregador ============ -->
+    <rect x="358" y="36" width="224" height="360" rx="12" fill="#f2f8fe" stroke="#1565c0" stroke-width="1.8"/>
+    <text x="378" y="62" font-size="14.5" font-weight="700" fill="#10457f">Agregador</text>
+    <text x="378" y="82" font-size="11.5" fill="#4d7ba8">Orquesta, no procesa</text>
+    <g font-size="12" fill="#25445f">
+      <text x="378" y="115">▪ Llama a los verticales</text>
+      <text x="390" y="131">en paralelo, nunca en serie</text>
+      <text x="378" y="157">▪ Filtra según preferencias</text>
+      <text x="390" y="173">del usuario y config del admin</text>
+      <text x="378" y="199">▪ Timeout por vertical</text>
+      <text x="390" y="215">con AbortController</text>
+      <text x="378" y="241">▪ Circuit breaker tras</text>
+      <text x="390" y="257">N fallos seguidos</text>
+      <text x="378" y="283">▪ Caché de la última</text>
+      <text x="390" y="299">respuesta buena</text>
+    </g>
+    <rect x="378" y="318" width="184" height="58" rx="9" fill="#fff" stroke="#a9c6e4"/>
+    <text x="392" y="339" font-size="11" fill="#25445f">Devuelve resultados</text>
+    <text x="392" y="355" font-size="11" fill="#25445f"><tspan font-weight="700">parciales</tspan>: lo que llegó,</text>
+    <text x="392" y="371" font-size="11" fill="#25445f">más qué faltó y por qué.</text>
+
+    <!-- flechas agregador → verticales -->
+    <path d="M588 110 H 620 Q 632 110 632 122 V 96 Q 632 84 644 84 H 668" stroke="#8593a2" stroke-width="1.6" fill="none" marker-end="url(#f)"/>
+    <path d="M588 216 H 668" stroke="#c98b88" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#fr)"/>
+    <path d="M588 322 H 620 Q 632 322 632 334 V 348 Q 632 360 644 360 H 668" stroke="#8593a2" stroke-width="1.6" fill="none" marker-end="url(#f)"/>
+
+    <!-- ============ COL 3 · Microservicios ============ -->
+    <rect x="672" y="46" width="246" height="76" rx="10" fill="#fff" stroke="#c3ccda" stroke-width="1.5"/>
+    <text x="692" y="72" font-size="14" font-weight="700" fill="#12222f">✈  Vuelos</text>
+    <text x="692" y="92" font-size="11" fill="#5a6a7a">Base propia · 510 itinerarios</text>
+    <rect x="692" y="100" width="58" height="16" rx="8" fill="#e6f5f0"/>
+    <text x="721" y="111.5" font-size="9.5" font-weight="700" fill="#17795e" text-anchor="middle">activo</text>
+
+    <rect x="672" y="178" width="246" height="76" rx="10" fill="#fdf6f5" stroke="#a32b2b" stroke-width="1.8"/>
+    <text x="692" y="204" font-size="14" font-weight="700" fill="#12222f">⌂  Hospedaje</text>
+    <text x="692" y="224" font-size="11" fill="#a32b2b">Proceso apagado en la demo</text>
+    <rect x="692" y="232" width="58" height="16" rx="8" fill="#fceceb"/>
+    <text x="721" y="243.5" font-size="9.5" font-weight="700" fill="#a32b2b" text-anchor="middle">caído</text>
+    <text x="900" y="196" font-size="19" fill="#a32b2b" text-anchor="middle" font-weight="700">✕</text>
+
+    <rect x="672" y="322" width="246" height="76" rx="10" fill="#fff" stroke="#c3ccda" stroke-width="1.5"/>
+    <text x="692" y="348" font-size="14" font-weight="700" fill="#12222f">◉  Usuarios / Perfil</text>
+    <text x="692" y="368" font-size="11" fill="#5a6a7a">Preferencias, roles, auditoría</text>
+    <rect x="692" y="376" width="58" height="16" rx="8" fill="#e6f5f0"/>
+    <text x="721" y="387.5" font-size="9.5" font-weight="700" fill="#17795e" text-anchor="middle">activo</text>
+
+    <!-- ============ Interfaz de proveedor ============ -->
+    <path d="M922 84 H 950 Q 960 84 960 94 V 140" stroke="#8593a2" stroke-width="1.6" fill="none"/>
+    <path d="M922 216 H 950 Q 960 216 960 206 V 190" stroke="#8593a2" stroke-width="1.6" fill="none"/>
+    <rect x="948" y="140" width="176" height="50" rx="9" fill="#fff8e8" stroke="#c99a35" stroke-width="1.6"/>
+    <text x="1036" y="160" font-size="11" font-weight="700" fill="#7a5c14" text-anchor="middle">interfaz ProveedorDeX</text>
+    <text x="1036" y="177" font-size="10" fill="#8a6c22" text-anchor="middle">2 implementaciones · flag</text>
+
+    <path d="M1128 158 H 1160" stroke="#17795e" stroke-width="1.8" fill="none" marker-end="url(#f)"/>
+    <path d="M1036 194 V 240 Q 1036 252 1048 252 H 1160" stroke="#8593a2" stroke-width="1.6" fill="none" marker-end="url(#f)"/>
+    <path d="M922 360 H 1160" stroke="#8593a2" stroke-width="1.6" fill="none" marker-end="url(#f)"/>
+
+    <!-- ============ COL 4 · Fuentes ============ -->
+    <rect x="1164" y="122" width="176" height="74" rx="10" fill="#f4fbf8" stroke="#17795e" stroke-width="1.8"/>
+    <text x="1184" y="146" font-size="13" font-weight="700" fill="#12222f">Base propia</text>
+    <text x="1184" y="164" font-size="10.5" fill="#5a6a7a">Rutas reales (OpenFlights)</text>
+    <text x="1184" y="180" font-size="10.5" fill="#5a6a7a">+ precios simulados</text>
+
+    <rect x="1164" y="222" width="176" height="74" rx="10" fill="#fff" stroke="#c3ccda" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="1184" y="246" font-size="13" font-weight="700" fill="#8593a2">Proveedor externo</text>
+    <text x="1184" y="264" font-size="10.5" fill="#8593a2">Interfaz lista, sin fuente</text>
+    <text x="1184" y="280" font-size="10.5" fill="#8593a2">activa (Amadeus cerró)</text>
+
+    <rect x="1164" y="330" width="176" height="62" rx="10" fill="#fff" stroke="#c3ccda" stroke-width="1.5"/>
+    <text x="1184" y="354" font-size="13" font-weight="700" fill="#12222f">Base de usuarios</text>
+    <text x="1184" y="373" font-size="10.5" fill="#5a6a7a">Credenciales y prefs.</text>
+
+    <!-- ============ Franja inferior ============ -->
+    <rect x="20" y="436" width="1320" height="70" rx="10" fill="#f7f9fc" stroke="#d5dce6"/>
+    <text x="44" y="462" font-size="12.5" font-weight="700" fill="#10457f">CADA VERTICAL SE SUMA IGUAL</text>
+    <text x="44" y="484" font-size="12" fill="#35485a">Autos y cruceros no están en el alcance del núcleo, pero entran sin rehacer nada: un servicio nuevo detrás de la misma interfaz, un fetcher</text>
+    <text x="44" y="500" font-size="12" fill="#35485a">y una entrada en el registro de verticales. Resultados, preferencias y panel de administración se actualizan solos.</text>
+
+    <rect x="20" y="520" width="1320" height="84" rx="10" fill="#f2f8fe" stroke="#a9c6e4"/>
+    <text x="44" y="546" font-size="12.5" font-weight="700" fill="#10457f">ESCENARIO VALIDADOR (VISTA 4+1 · KRUCHTEN)</text>
+    <text x="44" y="568" font-size="12" fill="#25445f">«El usuario busca un viaje mientras el servicio de hospedaje está caído.» Un solo caso que atraviesa las cuatro vistas: recorre la lógica</text>
+    <text x="44" y="584" font-size="12" fill="#25445f">(los tres estados), el desarrollo (interfaz y contrato), los procesos (llamadas en paralelo con timeout) y la física (contenedores separados).</text>
+  </g>
+</svg>
+
+<div class="paneles">
+  <div class="panel">
+    <h2>Los tres estados</h2>
+    <table>
+      <tr><td><span class="pastilla p-load">loading</span></td><td>Pedido en curso, dentro del presupuesto. Se muestra el esqueleto de la sección.</td></tr>
+      <tr><td><span class="pastilla p-ok">ok</span></td><td>Respondió a tiempo y cumplió el contrato. Se muestran los resultados.</td></tr>
+      <tr><td><span class="pastilla p-fail">unavailable</span></td><td>Falló, dio timeout, el circuito está abierto o el admin lo apagó. Aviso <em>dentro</em> de la sección.</td></tr>
+    </table>
+    <p style="margin-block-start:10px">Un servicio caído y uno apagado a mano producen la misma pantalla: cambia el motivo, no el componente.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Presupuesto de tiempo</h2>
+    <table>
+      <tr><td>Front → agregador</td><td class="num">3000 ms</td></tr>
+      <tr><td>Agregador → vertical</td><td class="num">2500 ms</td></tr>
+      <tr><td>Vertical → proveedor externo</td><td class="num">1800 ms</td></tr>
+    </table>
+    <p style="margin-block-start:10px">Cada capa se corta antes que la de arriba, así el que informa «no disponible» es el más informado y no el más impaciente.</p>
+    <p>El corte se hace con <code>AbortController</code>, no con <code>Promise.race</code>: <em>race</em> deja la conexión abierta consumiendo recursos, <em>abort</em> la cancela.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Cómo se demuestra</h2>
+    <p><span class="num">1.</span> Se lanza una búsqueda normal: vuelos y hospedaje responden en paralelo.</p>
+    <p><span class="num">2.</span> Se apaga el proceso de hospedaje en vivo (<code>npm run matar hospedaje</code>, mañana <code>docker stop</code>) y se repite la búsqueda.</p>
+    <p><span class="num">3.</span> Vuelos aparece enseguida. Hospedaje queda en «no disponible» dentro de su sección. Nada más de la pantalla cambia. Medido: con los dos verticales lentos la búsqueda tarda <strong>1810 ms</strong> y no los 3600 que tardaría en serie.</p>
+    <p><span class="num">4.</span> Se levanta el proceso y la sección se recupera sola en la búsqueda siguiente, sin tocar nada más.</p>
+    <p style="color:#5a6a7a"><strong>Caso extra:</strong> un servicio <em>colgado</em> —que acepta la conexión y nunca contesta— no se reproduce con <code>docker stop</code> y es el que voltea a los sistemas sin timeout. Se simula desde el panel de fallos.</p>
+  </div>
+</div>
+
+<div class="pie">
+  <span>Fases 1 y 2 implementadas: cuatro microservicios con base propia, agregador en paralelo con timeout, y front conectado.</span>
+  <span>Equipo de 2 · Núcleo estimado 9–12 semanas</span>
+</div>
+
+</body>
+</html>

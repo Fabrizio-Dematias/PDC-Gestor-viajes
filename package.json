@@ -1,0 +1,34 @@
+{
+  "name": "gestor-viajes",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:back": "VITE_API_URL=http://localhost:4000 vite",
+    "back": "node servidor/arrancar.mjs",
+    "back:vuelos": "node --disable-warning=ExperimentalWarning servidor/vuelos/index.js",
+    "back:hospedaje": "node --disable-warning=ExperimentalWarning servidor/hospedaje/index.js",
+    "back:usuarios": "node --disable-warning=ExperimentalWarning servidor/usuarios/index.js",
+    "back:agregador": "node --disable-warning=ExperimentalWarning servidor/agregador/index.js",
+    "matar": "node servidor/matar.mjs",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "node pruebas/humo-fallos.mjs",
+    "test:back": "node pruebas/humo-backend.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "vite": "^8.2.2"
+  }
+}

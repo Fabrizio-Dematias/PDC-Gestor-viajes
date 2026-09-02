@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Planificación — Gestor de viajes</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; inline-size: 1600px; padding: 36px 40px 32px;
+    background: #fff; color: #12222f;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { margin: 0 0 4px; font-size: 25px; letter-spacing: -.02em; }
+  .sub { margin: 0 0 22px; color: #5a6a7a; font-size: 14px; }
+  .sub b { color: #12222f; }
+
+  .g { display: grid; grid-template-columns: 250px repeat(16, 1fr); align-items: stretch; }
+
+  .mes { grid-row: 1; padding: 0 0 5px; font-size: 11px; font-weight: 700; letter-spacing: .1em;
+         color: #8593a2; border-block-end: 1px solid #e3e8ef; }
+  .sem { grid-row: 2; padding: 5px 0 7px; font-size: 10.5px; color: #8593a2; text-align: center;
+         border-inline-start: 1px solid #eef1f5; font-variant-numeric: tabular-nums; }
+  .sem.q { border-inline-start: 1px solid #c3ccda; }
+
+  .fila-nom { padding: 9px 14px 9px 0; border-block-start: 1px solid #eef1f5; }
+  .fila-nom .n { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+  .fila-nom .m { margin-block-start: 2px; font-size: 10.5px; color: #8593a2; letter-spacing: .02em; }
+  .pista { border-block-start: 1px solid #eef1f5; border-inline-start: 1px solid #eef1f5; }
+  .pista.q { border-inline-start: 1px solid #c3ccda; }
+
+  .barra { align-self: center; margin: 6px 2px; padding: 6px 8px; border-radius: 6px;
+           color: #fff; font-size: 10.5px; font-weight: 700; white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; z-index: 2; }
+  .b1 { background: #0b2a52; } .b2 { background: #10457f; } .b3 { background: #1565c0; }
+  .b4 { background: #2a7fd4; } .b5 { background: #4b95dd; }
+  .b6 { background: #17795e; }
+  .bh { background: #0f6b52; }
+  .bs { background: #fff; border: 1.5px dashed #a9b4c2; color: #5a6a7a; }
+
+  .hito { align-self: center; z-index: 3; margin-inline-start: -7px; }
+  .hito span { display: block; inline-size: 0; block-size: 0; border-inline: 7px solid transparent;
+               border-block-end: 11px solid #a32b2b; }
+  .hito i { position: absolute; margin-block-start: 2px; margin-inline-start: -30px; inline-size: 74px;
+            font-style: normal; font-size: 9.5px; font-weight: 700; color: #a32b2b; text-align: center; }
+
+  .leyenda { display: flex; gap: 26px; align-items: center; margin-block-start: 26px;
+             padding-block-start: 14px; border-block-start: 1px solid #e3e8ef; font-size: 12px; color: #5a6a7a; }
+  .leyenda b { color: #12222f; }
+  .chip { display: inline-block; inline-size: 22px; block-size: 9px; border-radius: 3px;
+          margin-inline-end: 6px; vertical-align: 1px; }
+  .nota { margin-block-start: 14px; font-size: 12px; color: #5a6a7a; line-height: 1.55; }
+</style>
+</head>
+<body>
+
+<h1>Planificación — Gestor de viajes</h1>
+<p class="sub">Etapas por módulo de la materia · sprints de 2 semanas · equipo de 2 personas ·
+  <b>núcleo del 01/09 al 29/11/2026</b> · E1 y E2 ya completadas</p>
+
+<div class="g">
+  <!-- fila 1: meses -->
+  <div class="mes" style="grid-column:1"></div>
+  <div class="mes" style="grid-column:2/6">SEPTIEMBRE</div>
+  <div class="mes" style="grid-column:6/10">OCTUBRE</div>
+  <div class="mes" style="grid-column:10/14">NOVIEMBRE</div>
+  <div class="mes" style="grid-column:14/18">DICIEMBRE</div>
+
+  <!-- fila 2: semanas -->
+  <div class="sem" style="grid-column:1; border:0"></div>
+  <div class="sem q">01</div><div class="sem">07</div><div class="sem">14</div><div class="sem">21</div>
+  <div class="sem q">28</div><div class="sem">05</div><div class="sem">12</div><div class="sem">19</div>
+  <div class="sem q">26</div><div class="sem">02</div><div class="sem">09</div><div class="sem">16</div>
+  <div class="sem q">23</div><div class="sem">30</div><div class="sem">07</div><div class="sem">14</div>
+
+  <!-- E0 -->
+  <div class="fila-nom" style="grid-row:3">
+    <div class="n">E0 · Plan del proyecto</div><div class="m">Entrega 0 — alcance, arquitectura, plan</div>
+  </div>
+  <div class="pista q" style="grid-row:3; grid-column:2"></div>
+  <div class="pista" style="grid-row:3; grid-column:3/6"></div>
+  <div class="pista q" style="grid-row:3; grid-column:6"></div><div class="pista" style="grid-row:3; grid-column:7/10"></div>
+  <div class="pista q" style="grid-row:3; grid-column:10"></div><div class="pista" style="grid-row:3; grid-column:11/14"></div>
+  <div class="pista q" style="grid-row:3; grid-column:14"></div><div class="pista" style="grid-row:3; grid-column:15/18"></div>
+  <div class="barra b1" style="grid-row:3; grid-column:2/3">S0 · Plan</div>
+  <div class="hito" style="grid-row:3; grid-column:3"><span></span><i>Entrega 0<br>07/09</i></div>
+
+  <!-- E1 -->
+  <div class="fila-nom" style="grid-row:4">
+    <div class="n">E1 · Cimientos y contrato</div><div class="m">Sprint 1 · Cascarón — vistas 4+1, contrato, front</div>
+  </div>
+  <div class="pista q" style="grid-row:4; grid-column:2"></div>
+  <div class="pista" style="grid-row:4; grid-column:3"></div>
+  <div class="pista" style="grid-row:4; grid-column:4"></div>
+  <div class="pista" style="grid-row:4; grid-column:5"></div>
+  <div class="pista q" style="grid-row:4; grid-column:6"></div>
+  <div class="pista" style="grid-row:4; grid-column:7"></div>
+  <div class="pista" style="grid-row:4; grid-column:8"></div>
+  <div class="pista" style="grid-row:4; grid-column:9"></div>
+  <div class="pista q" style="grid-row:4; grid-column:10"></div>
+  <div class="pista" style="grid-row:4; grid-column:11"></div>
+  <div class="pista" style="grid-row:4; grid-column:12"></div>
+  <div class="pista" style="grid-row:4; grid-column:13"></div>
+  <div class="pista q" style="grid-row:4; grid-column:14"></div>
+  <div class="pista" style="grid-row:4; grid-column:15"></div>
+  <div class="pista" style="grid-row:4; grid-column:16"></div>
+  <div class="pista" style="grid-row:4; grid-column:17"></div>
+  <div class="barra bh" style="grid-row:4; grid-column:2/3">✓ Hecho</div>
+  <!-- E2 -->
+  <div class="fila-nom" style="grid-row:5">
+    <div class="n">E2 · Backend distribuido</div><div class="m">Sprint 2 · Microservicios, agregador, timeouts</div>
+  </div>
+  <div class="pista q" style="grid-row:5; grid-column:2"></div>
+  <div class="pista" style="grid-row:5; grid-column:3"></div>
+  <div class="pista" style="grid-row:5; grid-column:4"></div>
+  <div class="pista" style="grid-row:5; grid-column:5"></div>
+  <div class="pista q" style="grid-row:5; grid-column:6"></div>
+  <div class="pista" style="grid-row:5; grid-column:7"></div>
+  <div class="pista" style="grid-row:5; grid-column:8"></div>
+  <div class="pista" style="grid-row:5; grid-column:9"></div>
+  <div class="pista q" style="grid-row:5; grid-column:10"></div>
+  <div class="pista" style="grid-row:5; grid-column:11"></div>
+  <div class="pista" style="grid-row:5; grid-column:12"></div>
+  <div class="pista" style="grid-row:5; grid-column:13"></div>
+  <div class="pista q" style="grid-row:5; grid-column:14"></div>
+  <div class="pista" style="grid-row:5; grid-column:15"></div>
+  <div class="pista" style="grid-row:5; grid-column:16"></div>
+  <div class="pista" style="grid-row:5; grid-column:17"></div>
+  <div class="barra bh" style="grid-row:5; grid-column:2/3">✓ Hecho</div>
+  <!-- E3 -->
+  <div class="fila-nom" style="grid-row:6">
+    <div class="n">E3 · Identidad y preferencias</div><div class="m">Módulos 3 y 5 — login con token, roles, auditoría</div>
+  </div>
+  <div class="pista q" style="grid-row:6; grid-column:2"></div>
+  <div class="pista" style="grid-row:6; grid-column:3"></div>
+  <div class="pista" style="grid-row:6; grid-column:4"></div>
+  <div class="pista" style="grid-row:6; grid-column:5"></div>
+  <div class="pista q" style="grid-row:6; grid-column:6"></div>
+  <div class="pista" style="grid-row:6; grid-column:7"></div>
+  <div class="pista" style="grid-row:6; grid-column:8"></div>
+  <div class="pista" style="grid-row:6; grid-column:9"></div>
+  <div class="pista q" style="grid-row:6; grid-column:10"></div>
+  <div class="pista" style="grid-row:6; grid-column:11"></div>
+  <div class="pista" style="grid-row:6; grid-column:12"></div>
+  <div class="pista" style="grid-row:6; grid-column:13"></div>
+  <div class="pista q" style="grid-row:6; grid-column:14"></div>
+  <div class="pista" style="grid-row:6; grid-column:15"></div>
+  <div class="pista" style="grid-row:6; grid-column:16"></div>
+  <div class="pista" style="grid-row:6; grid-column:17"></div>
+  <div class="barra b3" style="grid-row:6; grid-column:3/6">S3 · Sesión y perfil</div>
+  <!-- E4 -->
+  <div class="fila-nom" style="grid-row:7">
+    <div class="n">E4 · Proveedor externo</div><div class="m">Módulos 4 y 5 — nueva fuente tras la interfaz</div>
+  </div>
+  <div class="pista q" style="grid-row:7; grid-column:2"></div>
+  <div class="pista" style="grid-row:7; grid-column:3"></div>
+  <div class="pista" style="grid-row:7; grid-column:4"></div>
+  <div class="pista" style="grid-row:7; grid-column:5"></div>
+  <div class="pista q" style="grid-row:7; grid-column:6"></div>
+  <div class="pista" style="grid-row:7; grid-column:7"></div>
+  <div class="pista" style="grid-row:7; grid-column:8"></div>
+  <div class="pista" style="grid-row:7; grid-column:9"></div>
+  <div class="pista q" style="grid-row:7; grid-column:10"></div>
+  <div class="pista" style="grid-row:7; grid-column:11"></div>
+  <div class="pista" style="grid-row:7; grid-column:12"></div>
+  <div class="pista" style="grid-row:7; grid-column:13"></div>
+  <div class="pista q" style="grid-row:7; grid-column:14"></div>
+  <div class="pista" style="grid-row:7; grid-column:15"></div>
+  <div class="pista" style="grid-row:7; grid-column:16"></div>
+  <div class="pista" style="grid-row:7; grid-column:17"></div>
+  <div class="barra b4" style="grid-row:7; grid-column:6/8">S4 · Proveedor</div>
+  <!-- E5 -->
+  <div class="fila-nom" style="grid-row:8">
+    <div class="n">E5 · Resiliencia y despliegue</div><div class="m">Módulos 2 y 6 — circuit breaker, caché, Docker</div>
+  </div>
+  <div class="pista q" style="grid-row:8; grid-column:2"></div>
+  <div class="pista" style="grid-row:8; grid-column:3"></div>
+  <div class="pista" style="grid-row:8; grid-column:4"></div>
+  <div class="pista" style="grid-row:8; grid-column:5"></div>
+  <div class="pista q" style="grid-row:8; grid-column:6"></div>
+  <div class="pista" style="grid-row:8; grid-column:7"></div>
+  <div class="pista" style="grid-row:8; grid-column:8"></div>
+  <div class="pista" style="grid-row:8; grid-column:9"></div>
+  <div class="pista q" style="grid-row:8; grid-column:10"></div>
+  <div class="pista" style="grid-row:8; grid-column:11"></div>
+  <div class="pista" style="grid-row:8; grid-column:12"></div>
+  <div class="pista" style="grid-row:8; grid-column:13"></div>
+  <div class="pista q" style="grid-row:8; grid-column:14"></div>
+  <div class="pista" style="grid-row:8; grid-column:15"></div>
+  <div class="pista" style="grid-row:8; grid-column:16"></div>
+  <div class="pista" style="grid-row:8; grid-column:17"></div>
+  <div class="barra b5" style="grid-row:8; grid-column:8/13">S5–S6 · Resiliencia y contenedores</div>
+  <!-- E6 -->
+  <div class="fila-nom" style="grid-row:9">
+    <div class="n">E6 · Administración</div><div class="m">Módulo 6 — auditoría a la vista, tablero</div>
+  </div>
+  <div class="pista q" style="grid-row:9; grid-column:2"></div>
+  <div class="pista" style="grid-row:9; grid-column:3"></div>
+  <div class="pista" style="grid-row:9; grid-column:4"></div>
+  <div class="pista" style="grid-row:9; grid-column:5"></div>
+  <div class="pista q" style="grid-row:9; grid-column:6"></div>
+  <div class="pista" style="grid-row:9; grid-column:7"></div>
+  <div class="pista" style="grid-row:9; grid-column:8"></div>
+  <div class="pista" style="grid-row:9; grid-column:9"></div>
+  <div class="pista q" style="grid-row:9; grid-column:10"></div>
+  <div class="pista" style="grid-row:9; grid-column:11"></div>
+  <div class="pista" style="grid-row:9; grid-column:12"></div>
+  <div class="pista" style="grid-row:9; grid-column:13"></div>
+  <div class="pista q" style="grid-row:9; grid-column:14"></div>
+  <div class="pista" style="grid-row:9; grid-column:15"></div>
+  <div class="pista" style="grid-row:9; grid-column:16"></div>
+  <div class="pista" style="grid-row:9; grid-column:17"></div>
+  <div class="barra b5" style="grid-row:9; grid-column:13/15">S7 · Panel de admin</div>
+  <div class="hito" style="grid-row:9; grid-column:15"><span></span><i>Núcleo listo<br>29/11</i></div>
+  <!-- E7 -->
+  <div class="fila-nom" style="grid-row:10">
+    <div class="n">E7 · Reservas <span style="font-weight:400;color:#8593a2">(opcional)</span></div><div class="m">Módulos 3 y 6 — concurrencia real, idempotencia</div>
+  </div>
+  <div class="pista q" style="grid-row:10; grid-column:2"></div>
+  <div class="pista" style="grid-row:10; grid-column:3"></div>
+  <div class="pista" style="grid-row:10; grid-column:4"></div>
+  <div class="pista" style="grid-row:10; grid-column:5"></div>
+  <div class="pista q" style="grid-row:10; grid-column:6"></div>
+  <div class="pista" style="grid-row:10; grid-column:7"></div>
+  <div class="pista" style="grid-row:10; grid-column:8"></div>
+  <div class="pista" style="grid-row:10; grid-column:9"></div>
+  <div class="pista q" style="grid-row:10; grid-column:10"></div>
+  <div class="pista" style="grid-row:10; grid-column:11"></div>
+  <div class="pista" style="grid-row:10; grid-column:12"></div>
+  <div class="pista" style="grid-row:10; grid-column:13"></div>
+  <div class="pista q" style="grid-row:10; grid-column:14"></div>
+  <div class="pista" style="grid-row:10; grid-column:15"></div>
+  <div class="pista" style="grid-row:10; grid-column:16"></div>
+  <div class="pista" style="grid-row:10; grid-column:17"></div>
+  <div class="barra bs" style="grid-row:10; grid-column:15/18">S8 · Reservas</div>
+</div>
+
+<div class="leyenda">
+  <span><span class="chip" style="background:#1565c0"></span>Sprint del núcleo</span>
+  <span><span class="chip" style="background:#0f6b52"></span>✓ Ya completado</span>
+  <span><span class="chip" style="background:#fff;border:1.5px dashed #a9b4c2"></span>Sprint opcional, sólo si sobra tiempo</span>
+  <span><b>▲</b> Hito de entrega</span>
+  <span style="margin-inline-start:auto;color:#8593a2">S# = sprint · los nombres completos están en la tabla de actividades</span>
+</div>
+
+<p class="nota">
+  <b>Criterio de corte:</b> cada etapa deja algo demostrable por sí solo. Si el calendario se estira, se recorta desde el final
+  (E7 primero, después E6) sin que quede un sistema a medio hacer.<br>
+  <b>Replanificación:</b> las etapas 1 y 2 se completaron en la primera semana. Las semanas liberadas se reinvierten en la etapa 5 —circuit breaker, caché y contenedores—, que es la que concentra el requisito central de la materia.
+</p>
+
+</body>
+</html>
