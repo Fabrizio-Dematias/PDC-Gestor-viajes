@@ -1,0 +1,27 @@
+# El front de marca blanca: cada agencia es un build distinto de este
+# mismo Dockerfile, parametrizado por sus propios ARG en build-time
+# (docker-compose.agencias.yml) — el mismo criterio que ya usa
+# VITE_API_URL para elegir backend real vs. mock, aplicado a la agencia.
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install
+COPY index.html vite.config.js ./
+COPY public ./public
+COPY src ./src
+
+ARG VITE_API_URL
+ARG VITE_AGENCIA_ID
+ARG VITE_URL_NODO_AGENCIA
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_AGENCIA_ID=$VITE_AGENCIA_ID \
+    VITE_URL_NODO_AGENCIA=$VITE_URL_NODO_AGENCIA
+RUN npm run build
+
+FROM node:22-alpine
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=build /app/dist ./dist
+EXPOSE 4173
+CMD ["serve", "-s", "dist", "-l", "4173"]

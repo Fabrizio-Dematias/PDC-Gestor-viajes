@@ -1,20 +1,24 @@
 import { useMemo } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import BuscadorViajes from '../components/BuscadorViajes.jsx'
+import AvisoInvitado from '../components/resultados/AvisoInvitado.jsx'
 import SeccionOculta from '../components/resultados/SeccionOculta.jsx'
 import SeccionResultados from '../components/resultados/SeccionResultados.jsx'
 import { MOTIVO } from '../dominio/estados.js'
 import { etiquetaDe } from '../dominio/lugares.js'
 import { useLugares } from '../api/lugares.js'
+import { useAgencia } from '../api/tenant.js'
 import { VERTICALES } from '../dominio/verticales.jsx'
-import { useConfigAdmin, usePerfil } from '../api/perfil.js'
+import { usePerfil } from '../api/perfil.js'
+import { useSesion } from '../estado/sesion.js'
 
 export default function Resultados() {
   const [params] = useSearchParams()
   const navegar = useNavigate()
   const [perfil] = usePerfil()
-  const [configAdmin] = useConfigAdmin()
+  const agencia = useAgencia()
   const catalogo = useLugares()
+  const { estaAutenticado } = useSesion()
 
   const criterios = useMemo(() => Object.fromEntries(params), [params])
 
@@ -22,11 +26,16 @@ export default function Resultados() {
   // deshabilitadas y la pantalla mostraría esqueletos para siempre.
   const sinDestino = !criterios.destino
 
-  // El cruce de las dos capas de preferencias del contrato: lo que el
-  // usuario quiere ver y lo que el admin habilitó. Un vertical filtrado
-  // acá no se pide: no puede fallar lo que no se llama.
+  // Tres capas, en orden: qué campos trajo esta búsqueda (la solapa
+  // elegida en BuscadorViajes.jsx), qué habilitó la agencia (pública,
+  // `/api/tenant/config`) y qué quiere ver el usuario. Un vertical
+  // filtrado en cualquiera de las tres no se pide: no puede fallar lo
+  // que no se llama.
   const decididos = VERTICALES.map((vertical) => {
-    if (configAdmin[vertical.id]?.estado === 'inactivo') {
+    if (vertical.camposBusqueda.some((campo) => !criterios[campo])) {
+      return { vertical, visible: false, motivo: MOTIVO.CAMPOS_INSUFICIENTES }
+    }
+    if (!agencia.verticales_habilitados.includes(vertical.id)) {
       return { vertical, visible: false, motivo: MOTIVO.APAGADO_POR_ADMIN }
     }
     if (!perfil.preferencias[vertical.id]) {
@@ -40,16 +49,16 @@ export default function Resultados() {
   if (sinDestino) return <Navigate to="/" replace />
 
   return (
-    <div className="resultados">
+    <div className="grid gap-6">
       <BuscadorViajes
         compacto
         valores={criterios}
         onBuscar={(nuevos) => navegar(`/resultados?${new URLSearchParams(nuevos)}`)}
       />
 
-      <h1 className="resultados__titulo">
+      <h1 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xl font-semibold tracking-tight">
         {etiquetaDe(catalogo, criterios.destino)}
-        <span className="resultados__sub">
+        <span className="text-sm font-normal text-muted-foreground">
           {criterios.ida}
           {criterios.vuelta ? ` → ${criterios.vuelta}` : ''} ·{' '}
           {criterios.pasajeros || 1}{' '}
@@ -57,8 +66,10 @@ export default function Resultados() {
         </span>
       </h1>
 
+      {!estaAutenticado && <AvisoInvitado />}
+
       {visibles.length === 0 && (
-        <p className="vacio">
+        <p className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
           No hay ningún servicio habilitado para mostrar. Revisá tus
           preferencias en el perfil.
         </p>

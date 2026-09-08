@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { registrarBusqueda } from '../api/bitacora.js'
 import { ESTADO, MOTIVO } from '../dominio/estados.js'
 import { esNoDisponible } from '../dominio/errores.js'
 
@@ -35,6 +37,19 @@ export function useBusquedaVertical(vertical, fetcherFn, criterios) {
   })
 
   const hayCacheVieja = query.isError && Array.isArray(query.data)
+
+  // Bitácora fire-and-forget al nodo de agencia local (contrato §8):
+  // se dispara una vez por búsqueda resuelta, nunca antes de que
+  // termine y nunca bloqueando el render. Ver src/api/bitacora.js.
+  useEffect(() => {
+    if (query.isPending) return
+    registrarBusqueda({
+      vertical,
+      estado: query.isError ? ESTADO.NO_DISPONIBLE : ESTADO.OK,
+      motivo: esNoDisponible(query.error) ? query.error.motivo : undefined,
+      criterios,
+    })
+  }, [vertical, criterios, query.isPending, query.isError, query.error, query.dataUpdatedAt, query.errorUpdatedAt])
 
   return {
     ...query,

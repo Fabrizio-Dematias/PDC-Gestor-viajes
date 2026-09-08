@@ -1,0 +1,73 @@
+# Nodo central ("nuestro" — Servidor 1 del diagrama): entrada y
+# almacenamiento. Ver docs/arquitectura-multi-nodo.md §2.
+#
+#   docker compose -f docker-compose.central.yml up -d
+#
+# Crea la red compartida `gestor-viajes`, que usan también
+# docker-compose.workers.yml y docker-compose.agencias.yml para
+# hablarle a estos servicios por nombre.
+
+networks:
+  gestor-viajes:
+    name: gestor-viajes
+
+volumes:
+  postgres_datos:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gestor_viajes
+      POSTGRES_USER: gestor
+      POSTGRES_PASSWORD: gestor
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gestor']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [gestor-viajes]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    networks: [gestor-viajes]
+
+  usuarios:
+    build: .
+    command: ['servidor/usuarios/index.js']
+    environment:
+      PUERTO_USUARIOS: 4003
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: gestor_viajes
+      PGUSER: gestor
+      PGPASSWORD: gestor
+    ports:
+      - '4003:4003'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [gestor-viajes]
+
+  agregador:
+    build: .
+    command: ['servidor/agregador/index.js']
+    environment:
+      PUERTO_AGREGADOR: 4000
+      URL_USUARIOS: http://usuarios:4003
+      URL_VUELOS: http://vuelos:4001
+      URL_HOSPEDAJE: http://hospedaje:4002
+      URL_TRASLADO: http://traslado:4004
+      REDIS_URL: redis://redis:6379
+    ports:
+      - '4000:4000'
+    depends_on:
+      - usuarios
+      - redis
+    networks: [gestor-viajes]

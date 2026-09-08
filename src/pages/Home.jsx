@@ -16,14 +16,8 @@ export default function Home() {
   const destinos = catalogo.rutas[origen]?.length ?? 0
 
   return (
-    <div className="portada">
-      <div className="portada__texto">
-        <h1>¿A dónde viajás?</h1>
-        <p className="plomo">
-          Buscamos vuelos y hospedaje al mismo tiempo. Si alguno de los
-          servicios se cae, el resto de la búsqueda sigue andando.
-        </p>
-      </div>
+    <div className="grid gap-6 pt-4 sm:pt-8">
+      <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">¿A dónde viajás?</h1>
 
       <BuscadorViajes
         valores={CRITERIOS_INICIALES}
@@ -32,7 +26,7 @@ export default function Home() {
         }
       />
 
-      <p className="portada__pie">
+      <p className="text-xs text-muted-foreground">
         Buscando en{' '}
         {activos.length > 0
           ? activos.map((v) => v.titulo.toLowerCase()).join(' y ')

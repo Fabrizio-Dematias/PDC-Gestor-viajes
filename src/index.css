@@ -1,4 +1,21 @@
-/* ---- Tokens ------------------------------------------------------- */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---- Tokens ---------------------------------------------------------
+ * Dos capas que se leen entre sí a propósito: los tokens "de marca"
+ * (--azul-*, --fondo, --superficie, --texto...) son los que ya existían
+ * y los que pisa en tiempo de ejecución `App.jsx` con el color de cada
+ * agencia (docs/arquitectura-multi-nodo.md §3). Los tokens de shadcn
+ * (--primary, --background, --card...) no llevan un valor propio: cada
+ * uno referencia el token de marca que le corresponde, así los
+ * componentes de shadcn y el CSS que todavía no se migró comparten un
+ * solo lenguaje de color, y el modo oscuro y la marca blanca siguen
+ * funcionando para los dos sin duplicar nada.
+ * ------------------------------------------------------------------ */
 :root {
   --azul-900: #0b2a52;
   --azul-700: #10457f;
@@ -31,6 +48,43 @@
   --ancho: 980px;
 
   color-scheme: light;
+
+  /* shadcn/ui — mapeados a los tokens de marca de arriba */
+  --background: var(--fondo);
+  --foreground: var(--texto);
+  --card: var(--superficie);
+  --card-foreground: var(--texto);
+  --popover: var(--superficie);
+  --popover-foreground: var(--texto);
+  --primary: var(--azul-600);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: var(--superficie-2);
+  --secondary-foreground: var(--texto);
+  --muted: var(--superficie-2);
+  --muted-foreground: var(--texto-2);
+  --accent: var(--azul-100);
+  --accent-foreground: var(--azul-700);
+  --destructive: var(--falla);
+  --border: var(--borde);
+  --input: var(--borde-fuerte);
+  --ring: var(--azul-500);
+
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  --radius: 0.75rem;
+
+  --sidebar: var(--superficie);
+  --sidebar-foreground: var(--texto);
+  --sidebar-primary: var(--azul-600);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: var(--azul-100);
+  --sidebar-accent-foreground: var(--azul-700);
+  --sidebar-border: var(--borde);
+  --sidebar-ring: var(--azul-500);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -74,8 +128,7 @@ body {
   margin: 0;
   background: var(--fondo);
   color: var(--texto);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -134,7 +187,10 @@ a {
   white-space: nowrap;
 }
 
-/* ---- Controles ---------------------------------------------------- */
+/* ---- Controles nativos que todavía no se migraron a
+   src/components/ui: los campos de fecha/número del buscador y el
+   input de texto de BuscadorLugar.jsx (su combobox es a medida, no
+   shadcn — ver la nota en ese archivo). ------------------------------ */
 input,
 select,
 button {
@@ -154,42 +210,62 @@ select {
   color: var(--texto);
 }
 
-.boton {
-  display: inline-flex;
-  gap: 0.4rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border: 1px solid transparent;
-  border-radius: var(--radio-sm);
-  background: none;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.boton--primario {
-  background: var(--azul-600);
-  color: #fff;
-}
+/* No hace falta un bloque `.dark { ... }` aparte: todos los tokens de
+ * shadcn de arriba referencian los tokens de marca vía var(), y esos ya
+ * tienen su variante oscura en el @media de arriba. Duplicarlos acá
+ * sólo los desincroniza. */
 
-.boton--primario:hover {
-  background: var(--azul-700);
-}
-
-.boton--fantasma {
-  border-color: var(--borde-fuerte);
-  color: var(--texto-2);
-  font-size: 0.8125rem;
-  text-decoration: none;
-}
-
-.boton--fantasma:hover {
-  border-color: var(--azul-500);
-  color: var(--azul-600);
-}
-
-.boton:disabled {
-  opacity: 0.5;
-  cursor: default;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

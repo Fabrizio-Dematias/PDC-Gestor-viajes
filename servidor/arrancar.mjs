@@ -2,14 +2,17 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Levanta los cuatro servicios en un solo comando.
+ * Levanta los cinco servicios del nodo central + nodo de cómputo en un
+ * solo comando (no incluye `nodo-agencia`: ese no es parte de estos dos
+ * nodos, se levanta aparte, una instancia por agencia).
  *
- * Es comodidad de desarrollo, no despliegue: siguen siendo cuatro
- * procesos independientes con su propio puerto y su propia base, y matar
- * uno no afecta a los otros. En la Fase 5 esto lo reemplaza
- * `docker compose`, con la misma topología.
+ * Es comodidad de desarrollo, no despliegue: siguen siendo procesos
+ * independientes con su propio puerto, y matar uno no afecta a los
+ * otros. En despliegue esto lo reemplazan `docker-compose.central.yml` y
+ * `docker-compose.workers.yml`, con la misma topología repartida en dos
+ * nodos físicos.
  */
-const SERVICIOS = ['usuarios', 'vuelos', 'hospedaje', 'agregador']
+const SERVICIOS = ['usuarios', 'vuelos', 'hospedaje', 'traslado', 'agregador']
 
 const hijos = new Map()
 

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Arquitectura multi-nodo — Gestor de viajes</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; inline-size: 1440px; padding: 40px 40px 36px;
+    background: #fff; color: #12222f;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .cabecera { border-block-end: 3px solid #1565c0; padding-block-end: 14px; margin-block-end: 26px; }
+  .cabecera h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.02em; }
+  .cabecera p { margin: 0; color: #5a6a7a; font-size: 15px; }
+  .cabecera .materia { float: inline-end; color: #8593a2; font-size: 12px; text-align: end; line-height: 1.5; text-transform: uppercase; letter-spacing: .06em; }
+  .pie { margin-block-start: 18px; padding-block-start: 12px; border-block-start: 1px solid #e3e8ef; color: #8593a2; font-size: 11.5px; display: flex; justify-content: space-between; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #eef1f5; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="cabecera">
+  <div class="materia">Programación Distribuida y Componentes<br>Arquitectura multi-nodo y marca blanca</div>
+  <h1>Gestor de viajes — despliegue distribuido</h1>
+  <p>Tres tipos de nodo: agencias (marca blanca), central (entrada y almacenamiento) y cómputo (workers por vertical).</p>
+</div>
+
+<svg viewBox="0 0 1360 760" width="1360" height="760" role="img"
+     aria-label="Arquitectura de tres nodos: agencias, nodo central con gateway/auth/postgres/redis, y nodo de cómputo con workers de vuelos, hoteles y traslado, que hablan con proveedores externos">
+  <defs>
+    <marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8593a2"/>
+    </marker>
+    <marker id="fr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c98b88"/>
+    </marker>
+  </defs>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+
+    <!-- rótulo fila 1: nodos de agencia -->
+    <text x="680" y="20" font-size="11.5" font-weight="700" fill="#8593a2" letter-spacing="1.4" text-anchor="middle">NODO 3 · AGENCIAS (MARCA BLANCA) — UNO POR CLIENTE</text>
+
+    <!-- tres cajas de agencia -->
+    <g>
+      <rect x="60"  y="34" width="280" height="98" rx="10" fill="#f7f9fc" stroke="#d5dce6"/>
+      <rect x="540" y="34" width="280" height="98" rx="10" fill="#f7f9fc" stroke="#d5dce6"/>
+      <rect x="1020" y="34" width="280" height="98" rx="10" fill="#f7f9fc" stroke="#d5dce6" stroke-dasharray="4 3"/>
+      <text x="200" y="58" font-size="14" font-weight="700" fill="#10457f" text-anchor="middle">Agencia A</text>
+      <text x="680" y="58" font-size="14" font-weight="700" fill="#10457f" text-anchor="middle">Agencia B</text>
+      <text x="1160" y="58" font-size="14" font-weight="700" fill="#8593a2" text-anchor="middle">Agencia N…</text>
+      <g font-size="12" fill="#35485a">
+        <text x="200" y="80" text-anchor="middle">Front marca blanca (SPA)</text>
+        <text x="200" y="98" text-anchor="middle">+ BD temporal (caché local)</text>
+        <text x="680" y="80" text-anchor="middle">Front marca blanca (SPA)</text>
+        <text x="680" y="98" text-anchor="middle">+ BD temporal (caché local)</text>
+      </g>
+      <text x="200" y="118" font-size="10.5" fill="#8593a2" text-anchor="middle">agencia-a.dominio.com</text>
+      <text x="680" y="118" font-size="10.5" fill="#8593a2" text-anchor="middle">agencia-b.dominio.com</text>
+    </g>
+
+    <!-- flechas de agencias al gateway -->
+    <path d="M200,132 L200,180 L680,180 L680,222" fill="none" stroke="#8593a2" stroke-width="1.6" marker-end="url(#f)"/>
+    <path d="M680,132 L680,222" fill="none" stroke="#8593a2" stroke-width="1.6" marker-end="url(#f)"/>
+    <path d="M1160,132 L1160,180 L680,180" fill="none" stroke="#8593a2" stroke-width="1.6"/>
+    <text x="700" y="175" font-size="10.5" fill="#8593a2">búsqueda por vertical, config de marca (§tenant)</text>
+
+    <!-- rótulo fila 2: nodo central -->
+    <text x="680" y="210" font-size="11.5" font-weight="700" fill="#8593a2" letter-spacing="1.4" text-anchor="middle">NODO 1 · CENTRAL — ENTRADA Y ALMACENAMIENTO ("NUESTRO")</text>
+
+    <rect x="380" y="222" width="600" height="150" rx="12" fill="#eef4fb" stroke="#1565c0" stroke-width="1.4"/>
+    <g font-size="13" fill="#12222f">
+      <rect x="404" y="246" width="220" height="46" rx="8" fill="#fff" stroke="#a9c3e6"/>
+      <text x="514" y="266" text-anchor="middle" font-weight="700" fill="#10457f" font-size="12.5">API Gateway</text>
+      <text x="514" y="282" text-anchor="middle" font-size="10.5" fill="#5a6a7a">ruteo · timeout · circuit breaker</text>
+
+      <rect x="636" y="246" width="220" height="46" rx="8" fill="#fff" stroke="#a9c3e6"/>
+      <text x="746" y="266" text-anchor="middle" font-weight="700" fill="#10457f" font-size="12.5">Auth / Users</text>
+      <text x="746" y="282" text-anchor="middle" font-size="10.5" fill="#5a6a7a">login, roles, tenant</text>
+
+      <rect x="404" y="304" width="220" height="52" rx="8" fill="#fff" stroke="#a9c3e6"/>
+      <text x="514" y="326" text-anchor="middle" font-weight="700" fill="#10457f" font-size="12.5">Postgres</text>
+      <text x="514" y="342" text-anchor="middle" font-size="10.5" fill="#5a6a7a">usuarios · agencias · auditoría</text>
+
+      <rect x="636" y="304" width="220" height="52" rx="8" fill="#fff" stroke="#a9c3e6"/>
+      <text x="746" y="326" text-anchor="middle" font-weight="700" fill="#10457f" font-size="12.5">Redis</text>
+      <text x="746" y="342" text-anchor="middle" font-size="10.5" fill="#5a6a7a">caché última respuesta · cola de sync</text>
+    </g>
+
+    <!-- flecha central -> cómputo -->
+    <path d="M680,372 L680,420" fill="none" stroke="#8593a2" stroke-width="1.6" marker-end="url(#f)"/>
+    <text x="700" y="400" font-size="10.5" fill="#8593a2">llamadas en paralelo, en red, con timeout</text>
+
+    <!-- rótulo fila 3: nodo cómputo -->
+    <text x="680" y="448" font-size="11.5" font-weight="700" fill="#8593a2" letter-spacing="1.4" text-anchor="middle">NODO 2 · CÓMPUTO — WORKERS POR VERTICAL</text>
+
+    <rect x="240" y="460" width="880" height="118" rx="12" fill="#f7f9fc" stroke="#d5dce6"/>
+    <g font-size="12.5" fill="#12222f">
+      <rect x="270" y="486" width="250" height="66" rx="8" fill="#fff" stroke="#d5dce6"/>
+      <text x="395" y="510" text-anchor="middle" font-weight="700" fill="#10457f">Worker Vuelos</text>
+      <text x="395" y="528" text-anchor="middle" font-size="10.5" fill="#5a6a7a">servidor/vuelos hoy</text>
+
+      <rect x="555" y="486" width="250" height="66" rx="8" fill="#fff" stroke="#d5dce6"/>
+      <text x="680" y="510" text-anchor="middle" font-weight="700" fill="#10457f">Worker Hoteles</text>
+      <text x="680" y="528" text-anchor="middle" font-size="10.5" fill="#5a6a7a">servidor/hospedaje hoy</text>
+
+      <rect x="840" y="486" width="250" height="66" rx="8" fill="#fff" stroke="#d5dce6"/>
+      <text x="965" y="510" text-anchor="middle" font-weight="700" fill="#10457f">Worker Traslado</text>
+      <text x="965" y="528" text-anchor="middle" font-size="10.5" fill="#5a6a7a">servidor/traslado — mismo patrón ProveedorDeX</text>
+    </g>
+
+    <!-- flecha cómputo -> proveedores -->
+    <path d="M680,578 L680,626" fill="none" stroke="#c98b88" stroke-width="1.6" marker-end="url(#fr)"/>
+    <text x="700" y="606" font-size="10.5" fill="#a3625f">interfaz ProveedorDeX: real o ficticia, intercambiable</text>
+
+    <text x="680" y="654" font-size="11.5" font-weight="700" fill="#8593a2" letter-spacing="1.4" text-anchor="middle">FUENTES DE DATOS</text>
+    <rect x="340" y="666" width="680" height="60" rx="10" fill="#fceceb" stroke="#e3c6c4"/>
+    <text x="680" y="692" text-anchor="middle" font-size="12.5" fill="#7a3230" font-weight="700">API real (Amadeus / equivalente) — cuando exista una cuota o proveedor útil</text>
+    <text x="680" y="710" text-anchor="middle" font-size="11.5" fill="#7a3230">Proveedor ficticio (base propia con datos de referencia reales) — siempre disponible como respaldo</text>
+
+  </g>
+</svg>
+
+<div class="pie">
+  <span>Gestor de viajes — Arquitectura multi-nodo</span>
+  <span>docs/arquitectura-multi-nodo.md tiene el detalle de cada nodo y el mapeo con el sistema actual</span>
+</div>
+
+</body>
+</html>

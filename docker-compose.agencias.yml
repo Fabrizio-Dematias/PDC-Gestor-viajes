@@ -1,0 +1,59 @@
+# Nodos de agencia: dos instancias de ejemplo (ag-demo y ag-sur), cada
+# una con su propio front de marca blanca y su propio nodo-agencia
+# (bitácora local + sync contra el central). Ver
+# docs/arquitectura-multi-nodo.md §2 y §4.
+#
+# Requiere la red `gestor-viajes` (docker-compose.central.yml) y, para
+# que el front pueda buscar algo, el nodo de cómputo arriba
+# (docker-compose.workers.yml).
+#
+#   docker compose -f docker-compose.agencias.yml up -d --build
+
+networks:
+  gestor-viajes:
+    external: true
+
+services:
+  nodo-agencia-demo:
+    build: .
+    command: ['servidor/nodo-agencia/index.js']
+    environment:
+      AGENCIA_ID: ag-demo
+      PUERTO_NODO_AGENCIA: 4100
+      URL_AGREGADOR: http://agregador:4000
+    ports:
+      - '4100:4100'
+    networks: [gestor-viajes]
+
+  nodo-agencia-sur:
+    build: .
+    command: ['servidor/nodo-agencia/index.js']
+    environment:
+      AGENCIA_ID: ag-sur
+      PUERTO_NODO_AGENCIA: 4101
+      URL_AGREGADOR: http://agregador:4000
+    ports:
+      - '4101:4101'
+    networks: [gestor-viajes]
+
+  front-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+      args:
+        VITE_API_URL: http://localhost:4000
+        VITE_AGENCIA_ID: ag-demo
+        VITE_URL_NODO_AGENCIA: http://localhost:4100
+    ports:
+      - '5173:4173'
+
+  front-sur:
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+      args:
+        VITE_API_URL: http://localhost:4000
+        VITE_AGENCIA_ID: ag-sur
+        VITE_URL_NODO_AGENCIA: http://localhost:4101
+    ports:
+      - '5174:4173'

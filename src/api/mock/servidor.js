@@ -1,5 +1,6 @@
 import { MOTIVO } from '../../dominio/estados.js'
 import { generarHospedaje } from './datos/hospedaje.js'
+import { generarTraslado } from './datos/traslado.js'
 import { generarVuelos } from './datos/vuelos.js'
 import { SALUD, saludDe } from './caos.js'
 
@@ -15,6 +16,7 @@ import { SALUD, saludDe } from './caos.js'
 const GENERADORES = {
   vuelos: generarVuelos,
   hospedaje: generarHospedaje,
+  traslado: generarTraslado,
 }
 
 const LATENCIA = {

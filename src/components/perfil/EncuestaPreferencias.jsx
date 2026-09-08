@@ -1,3 +1,5 @@
+import { Checkbox } from '@/components/ui/checkbox.jsx'
+import { Label } from '@/components/ui/label.jsx'
 import { VERTICALES } from '../../dominio/verticales.jsx'
 
 /**
@@ -10,23 +12,25 @@ import { VERTICALES } from '../../dominio/verticales.jsx'
  */
 export default function EncuestaPreferencias({ preferencias, onCambiar }) {
   return (
-    <fieldset className="encuesta">
-      <legend className="encuesta__leyenda">¿Qué querés que busquemos?</legend>
+    <fieldset className="grid gap-2">
+      <legend className="mb-1 text-sm font-medium">¿Qué querés que busquemos?</legend>
       {VERTICALES.map((v) => (
-        <label key={v.id} className="opcion">
-          <input
-            type="checkbox"
+        <Label
+          key={v.id}
+          htmlFor={`pref-${v.id}`}
+          className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 font-normal has-[[data-checked]]:border-primary has-[[data-checked]]:bg-accent"
+        >
+          <Checkbox
+            id={`pref-${v.id}`}
             checked={Boolean(preferencias[v.id])}
-            onChange={(e) => onCambiar(v.id, e.target.checked)}
+            onCheckedChange={(checked) => onCambiar(v.id, checked)}
           />
-          <span className="opcion__icono" aria-hidden="true">
-            {v.icono}
+          <span aria-hidden="true">{v.icono}</span>
+          <span className="grid gap-0.5">
+            <span className="font-medium text-foreground">{v.titulo}</span>
+            <span className="text-xs text-muted-foreground">{v.descripcionPreferencia}</span>
           </span>
-          <span className="opcion__cuerpo">
-            <span className="opcion__titulo">{v.titulo}</span>
-            <span className="opcion__desc">{v.descripcionPreferencia}</span>
-          </span>
-        </label>
+        </Label>
       ))}
     </fieldset>
   )

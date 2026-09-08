@@ -1,0 +1,55 @@
+# Nodo de cómputo (Servidor 2 del diagrama): un worker por vertical,
+# sólo alcanzables desde el agregador del nodo central. Ver
+# docs/arquitectura-multi-nodo.md §2.
+#
+# Requiere que `docker-compose.central.yml` ya haya creado la red
+# `gestor-viajes` (docker compose -f docker-compose.central.yml up -d).
+#
+#   docker compose -f docker-compose.workers.yml up -d
+#
+# Para la demostración de "se cae un nodo entero":
+#
+#   docker compose -f docker-compose.workers.yml down
+
+networks:
+  gestor-viajes:
+    external: true
+
+volumes:
+  vuelos_datos:
+  hospedaje_datos:
+  traslado_datos:
+
+services:
+  vuelos:
+    build: .
+    command: ['servidor/vuelos/index.js']
+    environment:
+      PUERTO_VUELOS: 4001
+    ports:
+      - '4001:4001'
+    volumes:
+      - vuelos_datos:/app/servidor/vuelos/datos
+    networks: [gestor-viajes]
+
+  hospedaje:
+    build: .
+    command: ['servidor/hospedaje/index.js']
+    environment:
+      PUERTO_HOSPEDAJE: 4002
+    ports:
+      - '4002:4002'
+    volumes:
+      - hospedaje_datos:/app/servidor/hospedaje/datos
+    networks: [gestor-viajes]
+
+  traslado:
+    build: .
+    command: ['servidor/traslado/index.js']
+    environment:
+      PUERTO_TRASLADO: 4004
+    ports:
+      - '4004:4004'
+    volumes:
+      - traslado_datos:/app/servidor/traslado/datos
+    networks: [gestor-viajes]

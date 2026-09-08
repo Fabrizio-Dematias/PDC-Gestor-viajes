@@ -25,3 +25,7 @@ dist-ssr
 
 # Bases de datos de cada microservicio (se siembran solas al arrancar)
 servidor/*/datos/
+
+# Credenciales reales — .env.example queda versionado como plantilla,
+# esto no. Ver .env.example para qué variables hacen falta.
+.env

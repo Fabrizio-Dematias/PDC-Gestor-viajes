@@ -22,28 +22,44 @@ const json = async (ruta, opciones) => {
   const res = await fetch(`${BASE}${ruta}`, opciones)
   return { estado: res.status, datos: await res.json().catch(() => null) }
 }
+
+/** Login real (contrato §10): hace falta un token para todo lo que
+ *  antes se confiaba a `x-usuario-id` mandado sin verificar. */
+async function iniciarSesion(identificador, password) {
+  const { datos } = await json('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identificador, password }),
+  })
+  if (!datos?.token) throw new Error(`no se pudo loguear como ${identificador}`)
+  return datos.token
+}
+const conToken = (token) => (token ? { authorization: `Bearer ${token}` } : {})
+
 const salud = (vertical, estado) =>
   json(`/api/demo/salud/${vertical}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ estado }),
   })
-const config = (vertical, estado) =>
+// `/api/admin/*` exige sesión de admin con permiso `gestion_verticales`.
+const config = (vertical, estado, tokenAdmin) =>
   json(`/api/admin/config/${vertical}`, {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...conToken(tokenAdmin) },
     body: JSON.stringify({ estado }),
   })
-const preferencias = (preferencias) =>
+// `/api/perfil` exige sesión — sin token no hay un perfil de quién editar.
+const preferencias = (preferencias, tokenCliente) =>
   json('/api/perfil', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...conToken(tokenCliente) },
     body: JSON.stringify({ preferencias }),
   })
 
-const buscar = async () => {
+const buscar = async (token) => {
   const t = Date.now()
-  const { datos } = await json(`/api/buscar?${CRITERIOS}`)
+  const { datos } = await json(`/api/buscar?${CRITERIOS}`, { headers: conToken(token) })
   return { ...datos, ms: Date.now() - t }
 }
 const noDisponible = (r, vertical) => r.no_disponibles.find((n) => n.vertical === vertical)
@@ -56,10 +72,10 @@ const noDisponible = (r, vertical) => r.no_disponibles.find((n) => n.vertical ==
  */
 let referencia = { vuelos: 0, hospedaje: 0 }
 
-async function restaurar() {
+async function restaurar(tokenAdmin, tokenCliente) {
   await Promise.all([salud('vuelos', 'ok'), salud('hospedaje', 'ok')])
-  await Promise.all([config('vuelos', 'activo'), config('hospedaje', 'activo')])
-  await preferencias({ vuelos: true, hospedaje: true })
+  await Promise.all([config('vuelos', 'activo', tokenAdmin), config('hospedaje', 'activo', tokenAdmin)])
+  await preferencias({ vuelos: true, hospedaje: true }, tokenCliente)
 }
 
 // ---------------------------------------------------------------------
@@ -71,7 +87,13 @@ try {
   process.exit(1)
 }
 
-await restaurar()
+// Login como los dos usuarios semilla (servidor/usuarios/datos.js):
+// admin-demo (username admin) para lo que exige gestion_verticales, y
+// u-001 (email invitado@demo.com) para lo que sólo exige una sesión.
+const tokenAdmin = await iniciarSesion('admin', 'admin1234')
+const tokenCliente = await iniciarSesion('invitado@demo.com', 'demo1234')
+
+await restaurar(tokenAdmin, tokenCliente)
 
 titulo('todo sano')
 {
@@ -122,25 +144,30 @@ titulo('los dos lentos — prueba de que las llamadas son en paralelo')
 titulo('el admin apaga hospedaje — no se lo llama siquiera')
 {
   await salud('hospedaje', 'colgado') // si igual lo llamara, tardaría 2500 ms
-  await config('hospedaje', 'inactivo')
+  await config('hospedaje', 'inactivo', tokenAdmin)
+  // Apagado por admin es información pública (contrato §8): ni hace
+  // falta sesión para que se respete, alcanza con /api/tenant/config.
   const r = await buscar()
   ok(noDisponible(r, 'hospedaje')?.motivo === 'apagado_por_admin', 'motivo apagado_por_admin')
   ok(r.ms < 800, `responde en ${r.ms} ms: no se llamó al servicio colgado`)
   ok(r.vuelos.length === referencia.vuelos, 'vuelos intacto')
-  await config('hospedaje', 'activo')
+  await config('hospedaje', 'activo', tokenAdmin)
   await salud('hospedaje', 'ok')
 }
 
 titulo('el usuario desactiva hospedaje en sus preferencias')
 {
-  await preferencias({ vuelos: true, hospedaje: false })
-  const r = await buscar()
+  await preferencias({ vuelos: true, hospedaje: false }, tokenCliente)
+  // Esta vez la búsqueda tiene que ir logueada: sin sesión el
+  // agregador no tiene de quién leer preferencias (invitado = todo
+  // activado), así que no vería el cambio recién hecho.
+  const r = await buscar(tokenCliente)
   ok(
     noDisponible(r, 'hospedaje')?.motivo === 'desactivado_por_usuario',
     'motivo desactivado_por_usuario',
   )
   ok(r.vuelos.length === referencia.vuelos, 'vuelos intacto')
-  await preferencias({ vuelos: true, hospedaje: true })
+  await preferencias({ vuelos: true, hospedaje: true }, tokenCliente)
 }
 
 titulo('la ruta por vertical respeta el contrato')
@@ -182,11 +209,103 @@ titulo('el catálogo sólo ofrece rutas que existen')
 
 titulo('auditoría del panel de administración')
 {
-  const { datos } = await json('/api/admin/auditoria')
+  const sinSesion = await json('/api/admin/auditoria')
+  ok(sinSesion.estado === 401, `sin sesión, 401 (${sinSesion.estado})`)
+
+  const { datos } = await json('/api/admin/auditoria', { headers: conToken(tokenAdmin) })
   ok(Array.isArray(datos) && datos.length > 0, `quedaron ${datos?.length} cambios registrados`)
-  ok(datos?.[0]?.quien === 'u-001', 'con el usuario que los hizo')
+  ok(datos?.[0]?.quien === 'admin-demo', 'con el usuario que los hizo')
 }
 
-await restaurar()
+titulo('vertical traslado: mismo contrato que vuelos y hospedaje')
+{
+  const r = await json(`/api/buscar/traslado?${CRITERIOS}`)
+  ok(r.estado === 200, `HTTP 200 (${r.estado})`)
+  ok(r.datos?.estado === 'ok', 'estado ok')
+  ok(Array.isArray(r.datos?.items) && r.datos.items.length > 0, `devuelve ${r.datos?.items?.length} opciones`)
+  ok(
+    r.datos.items.every((t) => t.id && t.precio?.moneda && t.capacidad >= 2),
+    'las opciones cumplen la forma del contrato §2 y alcanzan para los pasajeros pedidos',
+  )
+}
+
+titulo('marca blanca: cada agencia tiene su propia config (contrato §8)')
+{
+  const demo = await json('/api/tenant/config', { headers: { 'x-agencia-id': 'ag-demo' } })
+  const sur = await json('/api/tenant/config', { headers: { 'x-agencia-id': 'ag-sur' } })
+  ok(demo.estado === 200 && sur.estado === 200, 'las dos agencias resuelven su config')
+  ok(
+    demo.datos.nombre !== sur.datos.nombre && demo.datos.color_primario !== sur.datos.color_primario,
+    `branding distinto (${demo.datos.nombre} / ${sur.datos.nombre})`,
+  )
+  ok(
+    demo.datos.verticales_habilitados.includes('traslado') &&
+      !sur.datos.verticales_habilitados.includes('traslado'),
+    'ag-sur no ofrece traslado; ag-demo sí — misma config_verticales, agencia_id distinto',
+  )
+}
+
+titulo('circuit breaker: tres fallos seguidos abren el circuito, sin red al cuarto (contrato §9)')
+{
+  const buscarComoSur = () =>
+    json(`/api/buscar/vuelos?${CRITERIOS}`, { headers: { 'x-agencia-id': 'ag-sur' } })
+  await salud('vuelos', 'caido')
+
+  for (let i = 1; i <= 3; i++) {
+    const r = await buscarComoSur()
+    ok(r.datos?.motivo === 'error', `fallo ${i}/3 registrado (motivo ${r.datos?.motivo})`)
+  }
+  const cuarto = await buscarComoSur()
+  ok(
+    cuarto.datos?.motivo === 'circuito_abierto',
+    `al cuarto fallo el circuito ya está abierto, sin llamar al servicio (motivo ${cuarto.datos?.motivo})`,
+  )
+
+  await salud('vuelos', 'ok')
+}
+
+titulo('login real: registro, código, verificación, sesión (contrato §10)')
+{
+  const email = `prueba-${Date.now()}@test.com`
+
+  const registro = await json('/api/auth/registro', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password: 'password123', nombre: 'Prueba Humo' }),
+  })
+  ok(registro.estado === 200 && typeof registro.datos?.codigo_demo === 'string', 'registro devuelve un código demo')
+
+  const loginSinVerificar = await json('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identificador: email, password: 'password123' }),
+  })
+  ok(
+    loginSinVerificar.estado === 403 && loginSinVerificar.datos?.motivo === 'email_no_verificado',
+    `sin verificar, 403 email_no_verificado (${loginSinVerificar.estado})`,
+  )
+
+  const verificar = await json('/api/auth/verificar-email', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, codigo: registro.datos.codigo_demo }),
+  })
+  ok(verificar.estado === 200 && typeof verificar.datos?.token === 'string', 'verificar el código loguea directo')
+
+  const perfilNuevo = await json('/api/perfil', { headers: conToken(verificar.datos.token) })
+  ok(perfilNuevo.datos?.nombre === 'Prueba Humo', 'el token nuevo sirve para pedir el propio perfil')
+
+  const credencialesMalas = await json('/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identificador: email, password: 'una-contraseña-cualquiera' }),
+  })
+  ok(
+    credencialesMalas.estado === 401 && credencialesMalas.datos?.motivo === 'credenciales_invalidas',
+    `contraseña incorrecta, 401 credenciales_invalidas (${credencialesMalas.estado})`,
+  )
+}
+
+await restaurar(tokenAdmin, tokenCliente)
 console.log(fallos === 0 ? '\n✔ todo en verde' : `\n✘ ${fallos} fallas`)
 process.exit(fallos ? 1 : 0)

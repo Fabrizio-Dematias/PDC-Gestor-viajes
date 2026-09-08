@@ -1,3 +1,4 @@
+import { Card, CardContent } from '@/components/ui/card.jsx'
 import { formatearPrecio } from '../../dominio/formato.js'
 
 function hora(iso) {
@@ -19,29 +20,36 @@ function escalas(n) {
 
 export default function ListaVuelos({ items }) {
   return (
-    <ul className="lista">
+    <ul className="grid gap-3">
       {items.map((v) => (
-        <li key={v.id} className="tarjeta tarjeta--vuelo">
-          <div className="tarjeta__marca" aria-hidden="true">
-            {v.codigo_aerolinea}
-          </div>
-          <div className="tarjeta__cuerpo">
-            <p className="tarjeta__titulo">{v.aerolinea}</p>
-            <p className="itinerario">
-              <span className="itinerario__hora">{hora(v.salida)}</span>
-              <span className="itinerario__iata">{v.origen}</span>
-              <span className="itinerario__linea" aria-hidden="true" />
-              <span className="itinerario__iata">{v.destino}</span>
-              <span className="itinerario__hora">{hora(v.llegada)}</span>
-            </p>
-            <p className="tarjeta__meta">
-              {duracion(v.duracion_min)} · {escalas(v.escalas)}
-            </p>
-          </div>
-          <div className="tarjeta__precio">
-            <span className="precio">{formatearPrecio(v.precio)}</span>
-            <span className="precio__nota">total</span>
-          </div>
+        <li key={v.id}>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div
+                className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
+                aria-hidden="true"
+              >
+                {v.codigo_aerolinea}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{v.aerolinea}</p>
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="tabular-nums">{hora(v.salida)}</span>
+                  <span className="font-medium text-foreground">{v.origen}</span>
+                  <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                  <span className="font-medium text-foreground">{v.destino}</span>
+                  <span className="tabular-nums">{hora(v.llegada)}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {duracion(v.duracion_min)} · {escalas(v.escalas)}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-semibold">{formatearPrecio(v.precio)}</p>
+                <p className="text-xs text-muted-foreground">total</p>
+              </div>
+            </CardContent>
+          </Card>
         </li>
       ))}
     </ul>

@@ -12,7 +12,7 @@ import { createServer } from 'node:http'
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, PUT, POST, OPTIONS',
-  'access-control-allow-headers': 'content-type, x-usuario-id',
+  'access-control-allow-headers': 'content-type, authorization, x-usuario-id, x-agencia-id',
 }
 
 /**
