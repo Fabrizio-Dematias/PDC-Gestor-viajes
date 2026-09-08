@@ -51,14 +51,17 @@ export default function Nav() {
   const navegar = useNavigate()
 
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-6 border-b bg-card px-4 py-2.5 sm:px-6">
+    <header className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card px-4 py-2.5 sm:gap-6 sm:px-6">
       <NavLink to="/" className="flex flex-none items-center gap-2 font-semibold tracking-tight text-foreground">
         <Isotipo />
-        <span>{agencia.nombre}</span>
+        {/* En una pantalla angosta el ícono ya alcanza como link a
+            inicio — el nombre completo de la agencia es lo primero
+            que puede ceder para no forzar scroll horizontal. */}
+        <span className="hidden sm:inline">{agencia.nombre}</span>
       </NavLink>
 
       <nav className="mr-auto flex gap-1">
-        <NavLink to="/" end className={enlaceClase}>
+        <NavLink to="/" end className={(props) => cn(enlaceClase(props), 'hidden sm:inline-flex')}>
           Buscar
         </NavLink>
         {estaAutenticado && (

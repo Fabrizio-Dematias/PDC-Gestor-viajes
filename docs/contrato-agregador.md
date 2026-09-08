@@ -300,6 +300,24 @@ búsqueda de Traslado también le "alcanzaría" a Hospedaje. Por eso la
 solapa elegida viaja como un campo más del criterio (`vertical`) y
 `Resultados.jsx` sólo muestra la que coincide — el resto queda
 colapsado con otro motivo que tampoco sale del backend
+
+### Multidestino: varios tramos, ningún cambio de contrato
+
+Vuelos y traslado suman un tercer modo además de ida-y-vuelta / solo
+ida: multidestino, una lista de 2 a 4 tramos independientes (cada uno
+con su propio origen —si corresponde— destino y fecha), para el caso
+real de un viaje que no vuelve por donde fue.
+
+Esto se resuelve **enteramente del lado del front**, sin tocar el
+contrato: `BuscadorViajes.jsx` arma un tramo por pedido y
+`Resultados.jsx` dispara una `SeccionResultados` por tramo, cada una
+con su propio criterio de un solo sentido (`origen`, `destino`, `ida`,
+sin `vuelta`) contra el mismo `GET /api/vuelos` o `GET /api/traslado`
+de siempre. El agregador y los verticales no saben que existe el modo
+multidestino — para ellos son N búsquedas comunes, en paralelo, cada
+una con su propio ciclo `loading → ok | unavailable`. Los tramos viajan
+en la URL aplanados (`tramos=2&origen_0=…&destino_0=…&fecha_0=…&origen_1=…`,
+ver `dominio/tramos.js`) porque `URLSearchParams` no anida objetos.
 (`otra_pestana`): la búsqueda tenía los campos, pero no era lo que se
 eligió.
 

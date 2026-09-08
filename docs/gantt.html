@@ -56,7 +56,7 @@
 
 <h1>Planificación — Gestor de viajes</h1>
 <p class="sub">Etapas por módulo de la materia · sprints de 2 semanas · equipo de 2 personas ·
-  <b>núcleo del 01/09 al 29/11/2026</b> · E1 y E2 ya completadas</p>
+  <b>núcleo previsto 01/09 al 29/11/2026</b> · E1 a E6 completadas al 08/09, muy adelantadas sobre lo previsto</p>
 
 <div class="g">
   <!-- fila 1: meses -->
@@ -147,7 +147,7 @@
   <div class="pista" style="grid-row:6; grid-column:15"></div>
   <div class="pista" style="grid-row:6; grid-column:16"></div>
   <div class="pista" style="grid-row:6; grid-column:17"></div>
-  <div class="barra b3" style="grid-row:6; grid-column:3/6">S3 · Sesión y perfil</div>
+  <div class="barra bh" style="grid-row:6; grid-column:3/6">✓ Sesión y perfil</div>
   <!-- E4 -->
   <div class="fila-nom" style="grid-row:7">
     <div class="n">E4 · Proveedor externo</div><div class="m">Módulos 4 y 5 — nueva fuente tras la interfaz</div>
@@ -168,7 +168,7 @@
   <div class="pista" style="grid-row:7; grid-column:15"></div>
   <div class="pista" style="grid-row:7; grid-column:16"></div>
   <div class="pista" style="grid-row:7; grid-column:17"></div>
-  <div class="barra b4" style="grid-row:7; grid-column:6/8">S4 · Proveedor</div>
+  <div class="barra bh" style="grid-row:7; grid-column:6/8">✓ Proveedor</div>
   <!-- E5 -->
   <div class="fila-nom" style="grid-row:8">
     <div class="n">E5 · Resiliencia y despliegue</div><div class="m">Módulos 2 y 6 — circuit breaker, caché, Docker</div>
@@ -189,7 +189,7 @@
   <div class="pista" style="grid-row:8; grid-column:15"></div>
   <div class="pista" style="grid-row:8; grid-column:16"></div>
   <div class="pista" style="grid-row:8; grid-column:17"></div>
-  <div class="barra b5" style="grid-row:8; grid-column:8/13">S5–S6 · Resiliencia y contenedores</div>
+  <div class="barra bh" style="grid-row:8; grid-column:8/13">✓ Resiliencia y contenedores</div>
   <!-- E6 -->
   <div class="fila-nom" style="grid-row:9">
     <div class="n">E6 · Administración</div><div class="m">Módulo 6 — auditoría a la vista, tablero</div>
@@ -210,8 +210,8 @@
   <div class="pista" style="grid-row:9; grid-column:15"></div>
   <div class="pista" style="grid-row:9; grid-column:16"></div>
   <div class="pista" style="grid-row:9; grid-column:17"></div>
-  <div class="barra b5" style="grid-row:9; grid-column:13/15">S7 · Panel de admin</div>
-  <div class="hito" style="grid-row:9; grid-column:15"><span></span><i>Núcleo listo<br>29/11</i></div>
+  <div class="barra bh" style="grid-row:9; grid-column:13/15">✓ Panel de admin</div>
+  <div class="hito" style="grid-row:9; grid-column:3"><span></span><i>Núcleo listo<br>08/09</i></div>
   <!-- E7 -->
   <div class="fila-nom" style="grid-row:10">
     <div class="n">E7 · Reservas <span style="font-weight:400;color:#8593a2">(opcional)</span></div><div class="m">Módulos 3 y 6 — concurrencia real, idempotencia</div>
@@ -245,8 +245,17 @@
 
 <p class="nota">
   <b>Criterio de corte:</b> cada etapa deja algo demostrable por sí solo. Si el calendario se estira, se recorta desde el final
-  (E7 primero, después E6) sin que quede un sistema a medio hacer.<br>
-  <b>Replanificación:</b> las etapas 1 y 2 se completaron en la primera semana. Las semanas liberadas se reinvierten en la etapa 5 —circuit breaker, caché y contenedores—, que es la que concentra el requisito central de la materia.
+  (E7 primero) sin que quede un sistema a medio hacer.<br>
+  <b>Replanificación real:</b> el núcleo completo (E1–E6) se cerró el 08/09, en la primera semana en vez de las trece
+  previstas. Las semanas liberadas no se recortan del calendario: se reinvirtieron en profundizar el núcleo más allá de lo
+  planeado en esta versión — arquitectura de 3 nodos (central / cómputo / agencia por cliente de marca blanca), Postgres
+  central migrado a un proveedor alojado (Supabase), catálogo global de aeropuertos (6071, dataset completo de OpenFlights)
+  en vez del recorte inicial, un vertical nuevo (Traslado) y rediseño de interfaz sobre shadcn/ui — y quedan disponibles
+  para E7 o para profundizar la defensa.<br>
+  <b>E4 · Proveedor externo:</b> la interfaz <code>ProveedorDeX</code> y sus dos implementaciones están completas y
+  documentadas; el proveedor sugerido (Amadeus Self-Service) dio de baja su portal de registro el 17/07/2026, a mitad de
+  camino del proyecto, sin que hiciera falta tocar el agregador, el front, el contrato ni las bases — la prueba en vivo de
+  que la abstracción cumple su función (<code>docs/proveedor-externo.md</code>).
 </p>
 
 </body>

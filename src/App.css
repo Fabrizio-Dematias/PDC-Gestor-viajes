@@ -5,6 +5,137 @@
   padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem) 6rem;
 }
 
+/* ---- Portada: título + solapas + buscador -------------------------- */
+/* El formato (solapas arriba, barra única de campos abajo) sigue el
+   molde de los buscadores de viaje conocidos; el color es el de
+   siempre en el sitio — nada de banda pintada, eso no se pidió. */
+.hero {
+  display: grid;
+  gap: 1.25rem;
+  padding-block-start: clamp(0.5rem, 2vw, 1rem);
+}
+
+.hero__titulo {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* ---- Tipo de viaje (ida y vuelta / solo ida / multidestino) ------- */
+.segmentado--tipo-viaje {
+  inline-size: fit-content;
+  grid-auto-columns: auto;
+  margin-block-end: 0.75rem;
+}
+
+.segmentado--tipo-viaje .segmentado__opcion {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+/* "Devolver en otro lugar" (traslado, ida y vuelta) */
+.checkbox-linea {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 0.75rem;
+  color: var(--texto-2);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* ---- Multidestino: un tramo por fila ------------------------------- */
+.tramos {
+  display: grid;
+  gap: 0.6rem;
+  inline-size: 100%;
+}
+
+.tramo {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie-2);
+}
+
+.tramo__numero {
+  padding-inline-end: 1.75rem;
+  color: var(--texto-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tramo__campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.tramo__campos .campo {
+  flex: 1 1 9rem;
+}
+
+.tramo__quitar {
+  position: absolute;
+  inset-block-start: 0.55rem;
+  inset-inline-end: 0.55rem;
+  display: grid;
+  place-items: center;
+  inline-size: 1.6rem;
+  block-size: 1.6rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+
+.tramo__quitar:hover {
+  background: var(--superficie);
+  color: var(--falla);
+}
+
+.tramo__quitar svg {
+  inline-size: 0.9rem;
+  block-size: 0.9rem;
+}
+
+.tramos__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.tramos__agregar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  background: none;
+  color: var(--azul-600);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tramos__agregar:hover {
+  background: var(--azul-100);
+}
+
+.tramos__agregar svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
 /* ---- Buscador ----------------------------------------------------- */
 /* Flex y no grid a propósito: las solapas por vertical
    (BuscadorViajes.jsx) muestran distintos campos según cuál esté
@@ -46,6 +177,67 @@
 
 .buscador .boton {
   flex: none;
+}
+
+/* A partir de acá entra una fila, como una sola barra: los campos
+   dejan de tener caja propia y se separan con un divisor, en vez de
+   tres inputs con su propio borde repetidos uno al lado del otro (algo
+   más cercano a cómo arma su buscador Booking.com). Abajo de este
+   ancho no alcanza el lugar — cada campo vuelve a ser una caja
+   completa, apilada, que es más fácil de tocar en un celular. */
+@media (min-width: 40rem) {
+  /* `:not(.buscador--tramos)`: en multidestino el buscador no es una
+     fila de campos sino una lista de tramos apilados (`.tramos`), cada
+     uno con su propia caja — nada de esto (barra única, divisores,
+     inputs sin borde) tiene que bajarle el estilo a los campos de
+     *adentro* de cada tramo, que son descendientes igual y sin el
+     `:not` los agarraría el mismo selector. */
+  .buscador:not(.buscador--tramos) {
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.4rem;
+    border-radius: 999px;
+  }
+
+  .buscador:not(.buscador--tramos) .campo {
+    position: relative;
+    padding-inline: 1.1rem;
+    justify-content: center;
+  }
+
+  /* Divisor entre campos. Sin `:last-child`/`:last-of-type`: los campos
+     mezclan `<div>` (BuscadorLugar) y `<label>` (fecha/pasajeros), y esos
+     selectores cuentan por etiqueta, no por esta clase — con eso, el
+     último "campo" real quedaba sin marcar. Más simple: el divisor va
+     en todos, incluido el que queda pegado al botón. */
+  .buscador:not(.buscador--tramos) .campo::after {
+    position: absolute;
+    inset-block: 0.4rem;
+    inset-inline-end: 0;
+    content: '';
+    border-inline-end: 1px solid var(--borde);
+  }
+
+  .buscador:not(.buscador--tramos) input[type="text"],
+  .buscador:not(.buscador--tramos) input[type="date"],
+  .buscador:not(.buscador--tramos) input[type="number"] {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .buscador .campo--angosto {
+    flex-basis: 6rem;
+  }
+
+  .buscador button[type="submit"] {
+    flex: none;
+    border-radius: 999px;
+    align-self: center;
+    margin-inline-start: 0.75rem;
+    padding-inline: 1.75rem;
+  }
 }
 
 .campo {

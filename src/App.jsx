@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { useAgencia } from './api/tenant.js'
 import PanelFallos from './components/demo/PanelFallos.jsx'
 import Nav from './components/layout/Nav.jsx'
+import { useSesion } from './estado/sesion.js'
 import './App.css'
 
 /** Un tono ~25% más oscuro, para el hover de los botones primarios
@@ -17,6 +18,7 @@ function oscurecer(hex, factor = 0.75) {
 
 export default function App() {
   const agencia = useAgencia()
+  const { usuario } = useSesion()
 
   // Personalización de marca blanca (docs/arquitectura-multi-nodo.md
   // §3): un color por agencia pisa las variables de marca en tiempo de
@@ -35,7 +37,7 @@ export default function App() {
       <main className="contenido">
         <Outlet />
       </main>
-      <PanelFallos />
+      {usuario?.rol === 'admin' && <PanelFallos />}
     </>
   )
 }

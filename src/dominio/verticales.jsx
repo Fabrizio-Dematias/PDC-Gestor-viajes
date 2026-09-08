@@ -34,6 +34,12 @@ export const VERTICALES = [
     usaVuelta: true,
     etiquetaIda: 'Ida',
     placeholderDestino: '¿A dónde vas?',
+    // Multidestino (§4-bis): varios tramos, cada uno con su propio
+    // origen/destino/fecha — un vuelo de ida Buenos Aires→Madrid puede
+    // volver desde Barcelona, no necesariamente desde Madrid.
+    soportaMultidestino: true,
+    tramoConOrigen: true,
+    etiquetaTramo: 'Vuelo',
   },
   {
     id: 'hospedaje',
@@ -46,6 +52,7 @@ export const VERTICALES = [
     usaVuelta: true,
     etiquetaIda: 'Check-in',
     placeholderDestino: '¿Dónde te hospedás?',
+    soportaMultidestino: false,
   },
   {
     id: 'traslado',
@@ -55,9 +62,19 @@ export const VERTICALES = [
     fetcher: buscarTraslado,
     Lista: ListaTraslado,
     camposBusqueda: ['destino', 'ida'],
-    usaVuelta: false,
-    etiquetaIda: 'Fecha de llegada',
-    placeholderDestino: '¿A qué ciudad llegás?',
+    usaVuelta: true,
+    etiquetaIda: 'Recogida',
+    placeholderDestino: '¿Dónde te recogemos?',
+    // Traslado no es un vuelo con escalas — es un servicio que a lo
+    // sumo se toma dos veces (recogida y regreso), así que no le sirve
+    // el mismo "multidestino" en lista que vuelos. Lo suyo es el molde
+    // de un alquiler de auto: hora además de fecha, y la vuelta puede
+    // ser a un lugar distinto de la recogida, pero sigue siendo sólo
+    // ida + vuelta, no una lista abierta de tramos.
+    soportaMultidestino: false,
+    usaHora: true,
+    permiteVueltaOtroLugar: true,
+    etiquetaVuelta: 'Devolución',
   },
 ]
 
