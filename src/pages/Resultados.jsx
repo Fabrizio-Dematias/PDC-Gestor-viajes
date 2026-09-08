@@ -26,14 +26,23 @@ export default function Resultados() {
   // deshabilitadas y la pantalla mostraría esqueletos para siempre.
   const sinDestino = !criterios.destino
 
-  // Tres capas, en orden: qué campos trajo esta búsqueda (la solapa
-  // elegida en BuscadorViajes.jsx), qué habilitó la agencia (pública,
-  // `/api/tenant/config`) y qué quiere ver el usuario. Un vertical
-  // filtrado en cualquiera de las tres no se pide: no puede fallar lo
-  // que no se llama.
+  // Cuatro capas, en orden: qué campos trajo esta búsqueda, si el
+  // vertical es el que realmente se eligió en la solapa (no alcanza con
+  // que sus campos también estén — buscar "Vuelos" trae destino+ida,
+  // que a Hospedaje también le alcanzarían, pero no es lo que se pidió),
+  // qué habilitó la agencia (pública, `/api/tenant/config`) y qué
+  // quiere ver el usuario. Un vertical filtrado en cualquiera de las
+  // cuatro no se pide: no puede fallar lo que no se llama.
+  //
+  // `criterios.vertical` puede faltar (un link viejo, armado antes de
+  // que la solapa mandara este campo): sin él, no se filtra por solapa
+  // y sólo importan los campos, como se comportaba antes.
   const decididos = VERTICALES.map((vertical) => {
     if (vertical.camposBusqueda.some((campo) => !criterios[campo])) {
       return { vertical, visible: false, motivo: MOTIVO.CAMPOS_INSUFICIENTES }
+    }
+    if (criterios.vertical && criterios.vertical !== vertical.id) {
+      return { vertical, visible: false, motivo: MOTIVO.OTRA_PESTANA }
     }
     if (!agencia.verticales_habilitados.includes(vertical.id)) {
       return { vertical, visible: false, motivo: MOTIVO.APAGADO_POR_ADMIN }

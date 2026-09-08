@@ -5,6 +5,7 @@ import { buttonVariants } from '@/components/ui/button.jsx'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -81,9 +82,11 @@ export default function Nav() {
             {usuario.nombre}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wide">
-              {usuario.rol}
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wide">
+                {usuario.rol}
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {

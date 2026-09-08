@@ -24,6 +24,14 @@ export const MOTIVO = {
    * necesite un mecanismo aparte.
    */
   CAMPOS_INSUFICIENTES: 'campos_insuficientes',
+  /**
+   * Igual que CAMPOS_INSUFICIENTES (nunca lo devuelve el backend, lo
+   * decide `Resultados.jsx` antes de pedir nada): esta búsqueda sí
+   * tenía los campos que este vertical necesita, pero se pidió desde
+   * la solapa de otro — ej. buscar "Vuelos" trae destino+ida, que
+   * también le alcanzarían a Hospedaje, pero no fue lo que se eligió.
+   */
+  OTRA_PESTANA: 'otra_pestana',
 }
 
 const TEXTOS = {
@@ -37,6 +45,7 @@ const TEXTOS = {
     'Ocultaste esta sección en tus preferencias.',
   [MOTIVO.CAMPOS_INSUFICIENTES]:
     'Esta búsqueda no tiene los datos que este servicio necesita.',
+  [MOTIVO.OTRA_PESTANA]: 'Buscaste desde otra pestaña.',
 }
 
 export function textoDeMotivo(motivo) {

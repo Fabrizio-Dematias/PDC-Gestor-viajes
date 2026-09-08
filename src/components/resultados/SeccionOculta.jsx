@@ -14,7 +14,7 @@ import { MOTIVO, textoDeMotivo } from '../../dominio/estados.js'
  */
 export default function SeccionOculta({ vertical, motivo }) {
   const esDelUsuario = motivo === MOTIVO.DESACTIVADO_POR_USUARIO
-  const faltanCampos = motivo === MOTIVO.CAMPOS_INSUFICIENTES
+  const faltanCampos = motivo === MOTIVO.CAMPOS_INSUFICIENTES || motivo === MOTIVO.OTRA_PESTANA
 
   return (
     <section data-vertical={vertical.id}>

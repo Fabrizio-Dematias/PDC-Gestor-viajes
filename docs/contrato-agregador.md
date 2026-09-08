@@ -294,6 +294,15 @@ colapsado, igual que un vertical apagado por el usuario o por el admin,
 pero con un motivo que **nunca sale del backend**
 (`campos_insuficientes`, sólo existe en `dominio/estados.js`).
 
+Los campos solos no alcanzan para saber qué se pidió: hospedaje y
+traslado piden exactamente los mismos (`destino`, `ida`), así que una
+búsqueda de Traslado también le "alcanzaría" a Hospedaje. Por eso la
+solapa elegida viaja como un campo más del criterio (`vertical`) y
+`Resultados.jsx` sólo muestra la que coincide — el resto queda
+colapsado con otro motivo que tampoco sale del backend
+(`otra_pestana`): la búsqueda tenía los campos, pero no era lo que se
+eligió.
+
 No cambia nada de lo anterior: sigue siendo una request por vertical,
 en paralelo, con el mismo timeout y el mismo circuit breaker para los
 verticales que sí se llegan a pedir.

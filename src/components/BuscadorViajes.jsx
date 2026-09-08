@@ -6,10 +6,14 @@ import { CRITERIOS_INICIALES } from '../dominio/criterios.js'
 import { VERTICALES, verticalPorId } from '../dominio/verticales.jsx'
 import BuscadorLugar from './BuscadorLugar.jsx'
 
-/** La solapa con la que arranca: la primera cuyos campos ya están
- *  completos en `valores` — así una búsqueda de hospedaje (sin
- *  `origen`) reabre en Hospedaje y no vuelve a Vuelos por defecto. */
+/** La solapa con la que arranca. Si `valores` ya trae qué vertical se
+ *  pidió (viene de un resultado, no de un formulario en blanco) se usa
+ *  ese directo — si no, la primera cuyos campos ya están completos, para
+ *  links viejos armados antes de que `vertical` viajara en la URL. Sin
+ *  esto, reabrir una búsqueda de Traslado mostraría la solapa Hospedaje
+ *  activa: los dos piden los mismos campos, y Hospedaje va primero. */
 function inferirPestana(valores) {
+  if (valores.vertical && verticalPorId(valores.vertical)) return valores.vertical
   const conTodo = VERTICALES.find((v) => v.camposBusqueda.every((c) => valores[c]))
   return conTodo?.id ?? VERTICALES[0].id
 }
@@ -59,6 +63,9 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
       ...form,
       origen: mostrarOrigen ? form.origen : '',
       vuelta: vertical.usaVuelta ? form.vuelta : '',
+      // Qué solapa se usó — Resultados.jsx lo usa para mostrar sólo lo
+      // que se pidió, no todo lo que la búsqueda alcanzaría a cubrir.
+      vertical: vertical.id,
     })
   }
 
