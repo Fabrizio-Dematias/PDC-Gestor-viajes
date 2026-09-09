@@ -34,6 +34,52 @@
   font-size: 0.8125rem;
 }
 
+/* ---- Ocupación (hospedaje: adultos, niños, habitaciones) ---------- */
+.ocupacion__disparador {
+  display: flex;
+  inline-size: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ocupacion__disparador svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--texto-3);
+  flex-shrink: 0;
+}
+
+.ocupacion__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.15rem;
+  font-size: 0.875rem;
+}
+
+.ocupacion__control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ocupacion__numero {
+  inline-size: 1.4rem;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* "Devolver en otro lugar" (traslado, ida y vuelta) */
 .checkbox-linea {
   display: flex;
@@ -221,7 +267,9 @@
 
   .buscador:not(.buscador--tramos) input[type="text"],
   .buscador:not(.buscador--tramos) input[type="date"],
-  .buscador:not(.buscador--tramos) input[type="number"] {
+  .buscador:not(.buscador--tramos) input[type="time"],
+  .buscador:not(.buscador--tramos) input[type="number"],
+  .buscador:not(.buscador--tramos) .ocupacion__disparador {
     padding: 0;
     border: 0;
     background: none;

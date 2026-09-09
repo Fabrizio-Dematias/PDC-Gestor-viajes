@@ -1,5 +1,6 @@
 import { CONFIG } from '../comun/config.js'
 import { crearProveedorAmadeus } from './proveedor-amadeus.js'
+import { crearProveedorDuffel } from './proveedor-duffel.js'
 import { crearProveedorFicticio } from './proveedor-ficticio.js'
 
 /**
@@ -24,10 +25,12 @@ import { crearProveedorFicticio } from './proveedor-ficticio.js'
  * - lanzar si la fuente falla, nunca devolver a medias — quien decide
  *   qué hacer con un fallo es el servicio, no el proveedor.
  *
- * Dos implementaciones intercambiables por configuración:
- * `PROVEEDOR=ficticio` (base propia) o `PROVEEDOR=amadeus` (API real).
+ * Tres implementaciones intercambiables por configuración:
+ * `PROVEEDOR=ficticio` (base propia), `amadeus` o `duffel` (APIs
+ * reales — docs/proveedor-externo.md).
  */
 export function crearProveedor(base) {
   if (CONFIG.proveedor === 'amadeus') return crearProveedorAmadeus()
+  if (CONFIG.proveedor === 'duffel') return crearProveedorDuffel()
   return crearProveedorFicticio(base)
 }

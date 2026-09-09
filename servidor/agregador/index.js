@@ -42,7 +42,19 @@ const AGENCIA_POR_DEFECTO = 'ag-demo'
 const TIMEOUT_CONTEXTO = CONFIG.timeouts.contexto
 
 const urlDe = (vertical) => CONFIG[vertical].url
-const queAgencia = (headers) => headers['x-agencia-id'] ?? AGENCIA_POR_DEFECTO
+
+/**
+ * De qué agencia es esta request. Con sesión, la agencia es la del
+ * token verificado — nunca la del header, que el cliente puede mandar
+ * con cualquier valor. Antes esto no era así: un usuario logueado de
+ * ag-sur que pegara contra un front desplegado con `x-agencia-id:
+ * ag-demo` (el caso de una sola instancia sirviendo a varias agencias,
+ * en vez de un despliegue por agencia) terminaba viendo — y
+ * modificando — la configuración de ag-demo, no la suya. La marca
+ * blanca depende de esto: quién sos ya decide de qué agencia sos, la
+ * cabecera sólo importa para quien todavía no inició sesión.
+ */
+const queAgencia = (headers, sesion) => sesion?.agenciaId ?? headers['x-agencia-id'] ?? AGENCIA_POR_DEFECTO
 
 /**
  * La identidad ya no viaja en una cabecera que el cliente puede
@@ -275,11 +287,13 @@ crearServicio({
       }
     },
 
-    /** Branding + verticales habilitados de la agencia que resuelve la
-     *  cabecera. Lo pide el front al arrancar (contrato §8). Abierta a
-     *  invitados: hace falta antes de que exista ninguna sesión. */
+    /** Branding + verticales habilitados de la agencia — la del usuario
+     *  logueado si hay sesión, la de la cabecera si no (contrato §8).
+     *  Lo pide el front al arrancar y de nuevo cada vez que cambia la
+     *  sesión. Abierta a invitados: hace falta antes de que exista
+     *  ninguna sesión. */
     'GET /api/tenant/config': async ({ headers }) => {
-      const agenciaId = queAgencia(headers)
+      const agenciaId = queAgencia(headers, sesionDe(headers))
       try {
         const { ok, estado, datos } = await pedirJson(`${CONFIG.usuarios.url}/api/agencias/${agenciaId}`, {
           timeoutMs: TIMEOUT_CONTEXTO,
@@ -349,8 +363,8 @@ crearServicio({
       const { vertical } = params
       if (!VERTICALES.includes(vertical)) throw new ErrorHttp(404, `vertical desconocido: ${vertical}`)
 
-      const agenciaId = queAgencia(headers)
       const sesion = sesionDe(headers)
+      const agenciaId = queAgencia(headers, sesion)
       const ctx = await contexto(sesion?.usuarioId, agenciaId)
       const salida = await resolver(vertical, criterios(query), ctx, agenciaId)
       const generado_en = new Date().toISOString()
@@ -377,8 +391,8 @@ crearServicio({
      */
     'GET /api/buscar': async ({ query, headers }) => {
       const criterio = criterios(query)
-      const agenciaId = queAgencia(headers)
       const sesion = sesionDe(headers)
+      const agenciaId = queAgencia(headers, sesion)
       const ctx = await contexto(sesion?.usuarioId, agenciaId)
 
       // En paralelo, no en serie: el total es el del vertical más lento,

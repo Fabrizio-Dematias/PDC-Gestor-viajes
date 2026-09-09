@@ -50,9 +50,14 @@ export const VERTICALES = [
     Lista: ListaHospedaje,
     camposBusqueda: ['destino', 'ida'],
     usaVuelta: true,
-    etiquetaIda: 'Check-in',
-    placeholderDestino: '¿Dónde te hospedás?',
+    etiquetaIda: 'Entrada',
+    etiquetaVuelta: 'Salida',
+    placeholderDestino: '¿Adónde vas?',
     soportaMultidestino: false,
+    // Alojamiento se reserva por ocupación (adultos, niños,
+    // habitaciones), no por un número de pasajeros suelto como vuelos
+    // o traslado — es lo único que cambia respecto del resto.
+    usaOcupacion: true,
   },
   {
     id: 'traslado',

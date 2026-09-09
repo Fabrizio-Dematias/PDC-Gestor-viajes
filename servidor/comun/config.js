@@ -72,8 +72,19 @@ export const CONFIG = {
   timeouts: {
     /** Agregador → vertical. */
     vertical: n(process.env.TIMEOUT_VERTICAL_MS, 2500),
-    /** Vertical → Amadeus. Se corta antes que el de arriba a propósito. */
+    /** Vertical → Amadeus/Duffel. Se corta antes que el de arriba a
+     *  propósito — salvo Duffel, ver la nota en su valor. */
     amadeus: n(process.env.TIMEOUT_AMADEUS_MS, 1800),
+    /** Medido contra la API real (`return_offers=true`, búsqueda
+     *  síncrona contra varias aerolíneas de prueba): entre 1.6 s y
+     *  3.4 s. Con el valor por defecto de arriba (2500 ms) para
+     *  agregador→vertical, esto va a superar ese presupuesto con
+     *  cierta frecuencia — el corte real, en ese caso, lo termina
+     *  haciendo el agregador antes que Duffel mismo. Este valor más
+     *  alto importa cuando se llama a `vuelos` directo (sin pasar por
+     *  el agregador), como en la demo por `curl` del contrato §2.
+     *  Ver docs/proveedor-externo.md. */
+    duffel: n(process.env.TIMEOUT_DUFFEL_MS, 4000),
     /** Agregador → usuarios (perfil/config/login/registro). Corto por
      *  defecto porque asume Postgres local (Docker); con Postgres
      *  alojado (Supabase u otro) el round-trip de red por sí solo puede
@@ -83,7 +94,8 @@ export const CONFIG = {
 
   /**
    * Qué implementación de ProveedorDeX usa cada vertical.
-   * `ficticio` lee de la base propia; `amadeus` pega contra la API real.
+   * `ficticio` lee de la base propia; `amadeus`/`duffel` pegan contra
+   * la API real correspondiente (docs/proveedor-externo.md).
    */
   proveedor: process.env.PROVEEDOR ?? 'ficticio',
 
@@ -92,6 +104,11 @@ export const CONFIG = {
     secreto: process.env.AMADEUS_CLIENT_SECRET,
     base: process.env.AMADEUS_BASE ?? 'https://test.api.amadeus.com',
     moneda: process.env.AMADEUS_MONEDA ?? 'ARS',
+  },
+
+  duffel: {
+    token: process.env.DUFFEL_ACCESS_TOKEN,
+    base: process.env.DUFFEL_BASE ?? 'https://api.duffel.com',
   },
 
   /** Circuit breaker: fallos seguidos que abren el circuito y cuánto

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import BuscadorViajes from '../components/BuscadorViajes.jsx'
+import { resumenOcupacion } from '../components/OcupacionSelector.jsx'
 import AvisoInvitado from '../components/resultados/AvisoInvitado.jsx'
 import SeccionOculta from '../components/resultados/SeccionOculta.jsx'
 import SeccionResultados from '../components/resultados/SeccionResultados.jsx'
@@ -120,8 +121,10 @@ export default function Resultados() {
               {criterios.vuelta ? ` → ${criterios.vuelta}` : ''}
             </>
           )}{' '}
-          · {criterios.pasajeros || 1}{' '}
-          {Number(criterios.pasajeros) === 1 ? 'pasajero' : 'pasajeros'}
+          ·{' '}
+          {criterios.habitaciones
+            ? resumenOcupacion(criterios)
+            : `${criterios.pasajeros || 1} ${Number(criterios.pasajeros) === 1 ? 'pasajero' : 'pasajeros'}`}
         </span>
       </h1>
 

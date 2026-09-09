@@ -1,5 +1,5 @@
 import { Plus, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Checkbox } from '@/components/ui/checkbox.jsx'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
@@ -8,6 +8,7 @@ import { CRITERIOS_INICIALES } from '../dominio/criterios.js'
 import { codificarTramos, decodificarTramos, tramoVacio, tramosCompletos } from '../dominio/tramos.js'
 import { VERTICALES, verticalPorId } from '../dominio/verticales.jsx'
 import BuscadorLugar from './BuscadorLugar.jsx'
+import OcupacionSelector from './OcupacionSelector.jsx'
 
 const TIPOS_VIAJE = [
   { id: 'ida_vuelta', etiqueta: 'Ida y vuelta' },
@@ -54,9 +55,17 @@ function inferirTipoViaje(valores) {
  * checkbox para "devolver en otro lugar", el mismo molde que un
  * alquiler de auto.
  */
-export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar, compacto }) {
+export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar, compacto, onPestanaChange }) {
   const [form, setForm] = useState(valores)
   const [pestana, setPestana] = useState(() => inferirPestana(valores))
+
+  // Le avisa al que lo usa qué solapa está activa — Home.jsx lo usa
+  // para mostrar contenido distinto según qué se está buscando. No es
+  // el mismo dato que `onBuscar`: este cambia con cada click de
+  // solapa, `onBuscar` sólo al enviar el formulario.
+  useEffect(() => {
+    onPestanaChange?.(pestana)
+  }, [pestana, onPestanaChange])
   const [tipoViaje, setTipoViaje] = useState(() => inferirTipoViaje(valores))
   const [tramos, setTramos] = useState(() => decodificarTramos(valores) ?? [tramoVacio(), tramoVacio()])
   const [otroLugarVuelta, setOtroLugarVuelta] = useState(() => Boolean(valores.destino_vuelta))
@@ -121,6 +130,13 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
       })
       return
     }
+    // Ocupación (hospedaje): lo que el contrato entiende sigue siendo
+    // `pasajeros` — adultos + niños —, así que se deriva acá; adultos,
+    // niños y habitaciones viajan igual, sólo para poder reabrir la
+    // búsqueda con el selector en el mismo estado (§4-bis).
+    const adultos = Number(form.adultos ?? 1)
+    const ninos = Number(form.ninos ?? 0)
+
     // Los campos que esta solapa no usa no viajan en la búsqueda —
     // aunque hayan quedado cargados de una solapa anterior — para que
     // `Resultados.jsx` no crea que sí se pidieron (§4).
@@ -131,6 +147,10 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
       hora_ida: vertical.usaHora ? (form.hora_ida ?? '') : '',
       hora_vuelta: vertical.usaHora && mostrarVuelta ? (form.hora_vuelta ?? '') : '',
       destino_vuelta: mostrarOtroLugar && otroLugarVuelta ? form.destino_vuelta : '',
+      pasajeros: vertical.usaOcupacion ? adultos + ninos : form.pasajeros,
+      adultos: vertical.usaOcupacion ? adultos : '',
+      ninos: vertical.usaOcupacion ? ninos : '',
+      habitaciones: vertical.usaOcupacion ? Number(form.habitaciones ?? 1) : '',
       // Qué solapa se usó — Resultados.jsx lo usa para mostrar sólo lo
       // que se pidió, no todo lo que la búsqueda alcanzaría a cubrir.
       vertical: vertical.id,
@@ -329,16 +349,23 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
               />
             )}
 
-            <label className="campo campo--angosto">
-              <span className="campo__etiqueta">Pasajeros</span>
-              <input
-                type="number"
-                min="1"
-                max="9"
-                value={form.pasajeros}
-                onChange={cambiar('pasajeros')}
+            {vertical.usaOcupacion ? (
+              <OcupacionSelector
+                valor={{ adultos: form.adultos, ninos: form.ninos, habitaciones: form.habitaciones }}
+                onCambiar={(o) => setForm((f) => ({ ...f, ...o }))}
               />
-            </label>
+            ) : (
+              <label className="campo campo--angosto">
+                <span className="campo__etiqueta">Pasajeros</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="9"
+                  value={form.pasajeros}
+                  onChange={cambiar('pasajeros')}
+                />
+              </label>
+            )}
 
             <Button type="submit" disabled={faltaDestino}>
               Buscar
