@@ -7,6 +7,9 @@ import Admin from './pages/Admin.jsx'
 import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import Perfil from './pages/Perfil.jsx'
+import Confirmacion from './pages/reserva/Confirmacion.jsx'
+import Datos from './pages/reserva/Datos.jsx'
+import Tarifas from './pages/reserva/Tarifas.jsx'
 import Registro from './pages/Registro.jsx'
 import Resultados from './pages/Resultados.jsx'
 import './index.css'
@@ -29,6 +32,9 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: 'resultados', element: <Resultados /> },
+      { path: 'reserva/tarifas', element: <Tarifas /> },
+      { path: 'reserva/datos', element: <Datos /> },
+      { path: 'reserva/confirmacion', element: <Confirmacion /> },
       { path: 'perfil', element: <Perfil /> },
       { path: 'login', element: <Login /> },
       { path: 'registro', element: <Registro /> },

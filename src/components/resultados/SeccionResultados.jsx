@@ -51,7 +51,7 @@ export default function SeccionResultados({ vertical, criterios }) {
               </AlertDescription>
             </Alert>
           )}
-          <Lista items={data} />
+          <Lista items={data} criterios={criterios} />
         </>
       )}
 
@@ -70,7 +70,7 @@ export default function SeccionResultados({ vertical, criterios }) {
               </Button>
             </AlertAction>
           </Alert>
-          <Lista items={data} />
+          <Lista items={data} criterios={criterios} />
         </>
       )}
 
