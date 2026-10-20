@@ -18,10 +18,19 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms))
 
 export function crearSaludDemo(nombre) {
   let estado = 'ok'
+  let listo = true
 
   return {
     get estado() {
       return estado
+    },
+
+    /** ¿El servicio se declara listo (`/salud/ready`)? Es un interruptor
+     *  distinto del anterior: el proceso sigue *vivo* y respondiendo, pero
+     *  avisa que no está en condiciones de recibir tráfico — como un
+     *  servicio que todavía carga datos o cuya base no contesta. */
+    get listo() {
+      return listo
     },
 
     rutas: {
@@ -33,6 +42,17 @@ export function crearSaludDemo(nombre) {
         estado = cuerpo.estado
         console.log(`[${nombre}] salud simulada → ${estado}`)
         return { servicio: nombre, estado }
+      },
+      // Liveness vs. readiness (Módulo 4): con `listo: false` el servicio
+      // sigue vivo (`/salud/live` → 200) pero `/salud/ready` da 503, el
+      // registro lo marca `critico` y el agregador deja de mandarle
+      // tráfico — sin reiniciar nada, que es justo lo que corresponde a
+      // un servicio vivo-pero-no-listo.
+      'GET /demo/listo': () => ({ servicio: nombre, listo }),
+      'PUT /demo/listo': ({ cuerpo }) => {
+        listo = Boolean(cuerpo?.listo)
+        console.log(`[${nombre}] readiness simulada → ${listo ? 'listo' : 'no listo'}`)
+        return { servicio: nombre, listo }
       },
     },
 

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Levanta los cinco servicios del nodo central + nodo de cómputo en un
+ * Levanta los siete servicios del nodo central + nodo de cómputo en un
  * solo comando (no incluye `nodo-agencia`: ese no es parte de estos dos
  * nodos, se levanta aparte, una instancia por agencia).
  *
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
  * `docker-compose.workers.yml`, con la misma topología repartida en dos
  * nodos físicos.
  */
-const SERVICIOS = ['usuarios', 'vuelos', 'hospedaje', 'traslado', 'agregador']
+const SERVICIOS = ['registro', 'usuarios', 'vuelos', 'hospedaje', 'traslado', 'notificaciones', 'agregador']
 
 const hijos = new Map()
 

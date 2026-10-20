@@ -9,7 +9,7 @@ import { crearProveedorFicticio } from './proveedor-ficticio.js'
  *
  * ```
  * nombre: string
- * buscar({ destino, pasajeros }) → Promise<Traslado[]>
+ * buscar({ destino, lugar, pasajeros }) → Promise<Traslado[]>
  * ```
  *
  * `Traslado` es exactamente la forma de `traslado[]` del contrato del

@@ -114,6 +114,37 @@ honesta posible del requisito central del proyecto: con datos
 ficticios el timeout nunca se dispara porque nunca hace falta; con una
 API real, a veces sí, y el sistema lo absorbe igual.
 
+**Qué se hizo con ese hallazgo.** Un presupuesto único de 2500 ms para
+toda fuente era el defecto: sirve para una base propia que contesta en
+milisegundos y es injusto para una API que tarda segundos. Ahora cada
+proveedor tiene el suyo: con `PROVEEDOR=duffel` (o `amadeus`) vuelos
+espera 5,5 s hacia el agregador y Duffel 5 s hacia afuera; los otros
+verticales siguen en 2,5 s. El agregador deduce el presupuesto de la
+variable `PROVEEDOR` —tiene que verla igual que el servicio de vuelos— y
+**lo informa al front** en `GET /api/v1/tenant/config`
+(`presupuestos_ms`), que se corta medio segundo después de cada uno: así
+sigue valiendo "cada capa se corta antes que la de arriba" con cualquier
+proveedor (`docs/contrato-agregador.md` §3). Medido de nuevo con la
+cuenta de prueba: 1,4–2,8 s por búsqueda, todas dentro del presupuesto.
+El timeout sigue actuando: el interruptor *Colgado* lo muestra igual, y
+una búsqueda real que superara los 5,5 s aparecería "no disponible". Lo
+que cambió es que una búsqueda sana ya no queda marcada como caída.
+
+**Ciudades.** Duffel entiende códigos de *ciudad* (`BUE`), no sólo de
+aeropuerto: verificado contra la API real, `BUE → MAD` devuelve en una
+sola búsqueda las ofertas de Ezeiza y de Aeroparque. Para las ciudades con
+código metropolitano oficial se manda ése; para el resto, los dos
+aeropuertos de más tráfico, con un tope porque cada búsqueda cuesta
+segundos (`expandir` en `proveedor-duffel.js`). Las horas que devuelve
+Duffel vienen sin huso (`2026-11-20T14:42:00`, reloj del aeropuerto); se
+les agrega la `Z` del contrato (§2) para que el navegador no las
+reinterprete como hora propia.
+
+**Reservas.** Las ofertas de Duffel no tienen cupo en la base propia, y
+esta integración no reserva (el token de prueba nunca podría confirmar
+una reserva real): `POST /api/v1/reservas` sólo acepta los vuelos del
+catálogo propio y rechaza el resto con 404 `vuelo_desconocido`.
+
 Por eso el proveedor por defecto sigue siendo `ficticio` — rápido,
 controlable, es la base de la demostración de fallos parciales — y
 Duffel queda como una segunda demostración, deliberadamente separada:

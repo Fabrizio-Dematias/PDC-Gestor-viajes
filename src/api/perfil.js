@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useRef } from 'react'
-import { useSesion } from '../estado/sesion.js'
+import { descartarSesion, useSesion } from '../estado/sesion.js'
 import { escribir, leer } from '../estado/almacen.js'
 import { VERTICALES } from '../dominio/verticales.jsx'
-import { AGENCIA_ID, cabecerasAuth, HAY_BACKEND, URL_API } from './cliente.js'
+import { AGENCIA_ID, cabecerasAuth, HAY_BACKEND, URL_API, V1 } from './cliente.js'
 
 /**
  * Perfil y configuración de administración.
@@ -12,7 +12,7 @@ import { AGENCIA_ID, cabecerasAuth, HAY_BACKEND, URL_API } from './cliente.js'
  * agregador (que reenvía al servicio de usuarios), y sin backend usan
  * localStorage. Los componentes no saben en cuál están.
  *
- * Con login real (contrato §10), `/api/perfil` y todo `/api/admin/*`
+ * Con login real (contrato §10), `/perfil` y todo `/admin/*`
  * exigen sesión: sin ella, estos hooks ni siquiera piden — devuelven el
  * valor por defecto directo, como haría un invitado.
  */
@@ -30,7 +30,7 @@ const CONFIG_POR_DEFECTO = todos({ estado: 'activo' })
 const AGREGADAS_SIMULADAS = { total_usuarios: 128, vuelos: 121, hospedaje: 87 }
 
 async function pedir(ruta, { metodo = 'GET', cuerpo } = {}) {
-  const res = await fetch(`${URL_API}${ruta}`, {
+  const res = await fetch(`${URL_API}${V1}${ruta}`, {
     method: metodo,
     headers: {
       'content-type': 'application/json',
@@ -39,6 +39,9 @@ async function pedir(ruta, { metodo = 'GET', cuerpo } = {}) {
     },
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
   })
+  // Con token pero rechazado: la sesión ya no vale. Se descarta para que
+  // la pantalla deje de mostrarse como si hubiera alguien logueado.
+  if (res.status === 401 && cabecerasAuth().authorization) descartarSesion()
   if (!res.ok) throw new Error(`${metodo} ${ruta} → ${res.status}`)
   return res.json()
 }
@@ -94,14 +97,14 @@ export function usePerfil() {
     obtener: () => {
       if (!HAY_BACKEND) return leer('perfil', PERFIL_POR_DEFECTO)
       if (!estaAutenticado) return PERFIL_POR_DEFECTO
-      return pedir('/api/perfil')
+      return pedir('/perfil')
     },
     guardar: (perfil) => {
       if (!conBackend) {
         if (!HAY_BACKEND) escribir('perfil', perfil)
         return perfil
       }
-      return pedir('/api/perfil', { metodo: 'PUT', cuerpo: perfil }).then((actualizado) => {
+      return pedir('/perfil', { metodo: 'PUT', cuerpo: perfil }).then((actualizado) => {
         actualizarUsuario({ nombre: actualizado.nombre })
         return actualizado
       })
@@ -120,7 +123,7 @@ export function useConfigAdmin() {
     obtener: () => {
       if (!HAY_BACKEND) return leer('config-admin', CONFIG_POR_DEFECTO)
       if (!esAdmin) return CONFIG_POR_DEFECTO
-      return pedir('/api/admin/config')
+      return pedir('/admin/config')
     },
     guardar: (nueva) => {
       if (!HAY_BACKEND) {
@@ -136,7 +139,7 @@ export function useConfigAdmin() {
       )
       return Promise.all(
         cambios.map(([id, v]) =>
-          pedir(`/api/admin/config/${id}`, { metodo: 'PUT', cuerpo: v }),
+          pedir(`/admin/config/${id}`, { metodo: 'PUT', cuerpo: v }),
         ),
       ).then((rs) => rs.at(-1) ?? nueva)
     },
@@ -150,7 +153,7 @@ export function usePreferenciasAgregadas() {
 
   const { data } = useQuery({
     queryKey: ['preferencias-agregadas'],
-    queryFn: () => (HAY_BACKEND ? pedir('/api/admin/preferencias-agregadas') : AGREGADAS_SIMULADAS),
+    queryFn: () => (HAY_BACKEND ? pedir('/admin/preferencias-agregadas') : AGREGADAS_SIMULADAS),
     enabled: !HAY_BACKEND || esAdmin,
     placeholderData: AGREGADAS_SIMULADAS,
     staleTime: 60_000,
@@ -167,20 +170,20 @@ export function useAdministradores() {
 
   const { data } = useQuery({
     queryKey: ['administradores'],
-    queryFn: () => pedir('/api/admin/administradores'),
+    queryFn: () => pedir('/admin/administradores'),
     enabled: HAY_BACKEND && puedeGestionar,
     placeholderData: [],
   })
 
   const { mutate: crear, isPending: creando, error: errorCrear } = useMutation({
     mutationFn: ({ username, password, permisos }) =>
-      pedir('/api/admin/administradores', { metodo: 'POST', cuerpo: { username, password, permisos } }),
+      pedir('/admin/administradores', { metodo: 'POST', cuerpo: { username, password, permisos } }),
     onSuccess: (lista) => qc.setQueryData(['administradores'], lista),
   })
 
   const { mutate: cambiarPermisos } = useMutation({
     mutationFn: ({ id, permisos }) =>
-      pedir(`/api/admin/administradores/${id}/permisos`, { metodo: 'PUT', cuerpo: { permisos } }),
+      pedir(`/admin/administradores/${id}/permisos`, { metodo: 'PUT', cuerpo: { permisos } }),
     onSuccess: (lista) => qc.setQueryData(['administradores'], lista),
   })
 

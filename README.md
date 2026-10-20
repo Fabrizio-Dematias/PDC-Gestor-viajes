@@ -6,11 +6,20 @@ sistema sigue funcionando y el usuario puede seguir navegando.
 
 Proyecto final de **Programación Distribuida y Componentes**.
 
-## Estado: Fases 1 y 2
+## Estado
 
-Backend distribuido andando: cuatro microservicios, cada uno con su
-propia base SQLite, coordinados por un agregador que los llama en
-paralelo con timeout y devuelve resultados parciales.
+Backend distribuido andando: siete servicios (más un nodo por agencia),
+cada uno con su propia base, coordinados por un agregador que los llama
+en paralelo con timeout y devuelve resultados parciales. Sobre esa base
+se sumaron los dos módulos de la materia que siguieron a la arquitectura:
+
+- **Módulo 3, comunicación** (`docs/modulo-3-comunicacion.md`): reservas
+  reales con cupo atómico e idempotencia, un canal asíncrono (Redis
+  Streams) para los avisos de confirmación, y la prueba que muestra la
+  carrera por el último asiento y su solución.
+- **Módulo 4, middleware** (`docs/modulo-4-middleware.md`): registro de
+  servicios con health checks, sondas `live`/`ready`, API versionada
+  (`/api/v1`) y descrita con OpenAPI (`docs/openapi.yaml`).
 
 El front funciona en dos modos. Sin backend habla con un servidor
 simulado en memoria que cumple el mismo contrato; con backend habla con
@@ -18,11 +27,13 @@ el agregador. Los componentes son los mismos en los dos casos.
 
 | Servicio | Puerto | Base propia | Contenido |
 |---|---|---|---|
-| Agregador (Gateway) | 4000 | Redis (breaker + caché) | no guarda nada propio |
-| Vuelos | 4001 | `vuelos.db` | 6071 aeropuertos, ~131 000 itinerarios |
-| Hospedaje | 4002 | `hospedaje.db` | ~48 500 alojamientos, uno por ciudad con aeropuerto |
+| Agregador (Gateway) | 4000 | Redis (breaker + caché) | no guarda nada propio; publica los eventos de reservas |
+| Vuelos | 4001 | `vuelos.db` | 6071 aeropuertos, ~131 000 itinerarios, cupos y reservas |
+| Hospedaje | 4002 | `hospedaje.db` | ~48 500 alojamientos (8 por aeropuerto; se aloja uno en la ciudad) |
 | Traslado | 4004 | `traslado.db` | 4 tipos de vehículo, tarifado por ciudad |
 | Usuarios | 4003 | Postgres (nodo central) | agencias, usuarios, preferencias, auditoría |
+| Notificaciones | 4005 | `notificaciones.db` + stream en Redis | consume los eventos de reservas y "envía" la confirmación |
+| Registro de servicios | 4006 | memoria | quién está vivo y dónde; verifica `/salud/ready` de cada instancia |
 | Nodo de agencia | 4100+ | `registro-<agencia>.db` | bitácora local, una instancia por agencia |
 
 Nota: `usuarios` y `agregador` son los dos servicios que dejaron de ser
@@ -48,16 +59,23 @@ no en `servidor/datos-referencia/FUENTE.md`.
 Lo simulado son **los horarios, la disponibilidad y los precios** — que
 es exactamente lo que cobra un GDS y lo que daría el proveedor externo.
 
-Consecuencia práctica para **vuelos**: el buscador sólo ofrece rutas que
-existen de verdad, de las 65 647 reales entre esos 6071 aeropuertos —no
-cualquier combinación de origen y destino—. **Hospedaje** y **traslado**
-no tienen esa restricción: como no dependen de una ruta aérea, ofrecen
-cualquier aeropuerto del catálogo como destino (docs/contrato-agregador.md §4).
+Consecuencia práctica para **vuelos**: la red de rutas es la real, pero
+el buscador no se limita a los vuelos directos, que cubren apenas el
+0,4 % de los pares de aeropuertos. Se puede buscar de **cualquier lugar a
+cualquier lugar** unidos por un recorrido de hasta dos escalas, con
+horarios que cierran, el huso horario real de cada aeropuerto y, cuando
+hace falta, un cambio de aeropuerto dentro de la ciudad (Tucumán →
+Aeroparque → Ezeiza → Madrid). Si no existe recorrido, la respuesta es
+vacía: no se inventa un vuelo. Un *lugar* es una **ciudad** (`BUE`:
+Ezeiza y Aeroparque juntos) o un aeropuerto (`EZE`). **Hospedaje** y
+**traslado** ofrecen cualquier ciudad del catálogo, haya o no vuelo hasta
+ella. El análisis completo, con cifras y con los errores que lo
+originaron, está en `docs/analisis-rutas.md`.
 
 Origen y destino se eligen escribiendo, no de una lista desplegable: dos
 o tres letras de una ciudad, un país o un código IATA alcanzan
 (`cordoba`, `Córdoba`, `esp` y `ez` funcionan igual). El catálogo lo
-sirve `GET /api/lugares`.
+sirve `GET /api/v1/lugares`.
 
 ## Arrancar
 
@@ -69,17 +87,24 @@ npm install
 npm run infra:up   # Postgres + Redis, en Docker
 
 # Sistema completo (recomendado)
-npm run back       # los cinco servicios del nodo central + cómputo
+npm run back       # los siete servicios del nodo central + cómputo
 npm run dev:back   # front conectado, en http://localhost:5173
 
 # Sólo el front, contra el servidor simulado
 npm run dev
 
 # Pruebas
-npm test           # tolerancia a fallos en el front (no necesita backend)
-npm run test:back  # aislamiento, timeout y paralelismo en el backend real
+npm test                   # tolerancia a fallos en el front (no necesita backend)
+npm run test:back          # aislamiento, timeout, rutas y login en el backend real
 npm run build
 ```
+
+Las pruebas de backend reservan asientos y mandan avisos: si se
+corren seguido conviene levantar el sistema con `DATOS_DIR=/tmp/pruebas`
+para que esas reservas no ensucien las bases de la demostración.
+
+La API completa está descrita en `docs/openapi.yaml` y, con el sistema
+levantado, en `http://localhost:4000/api/v1/docs`.
 
 ## Cuentas de prueba
 
@@ -193,37 +218,59 @@ vertical vuelve con `cacheado: true` en vez de quedar `unavailable`
 
 ```
 docs/
+  manual-de-funcionamiento.md Cómo levantar, usar y diagnosticar el sistema
   contrato-agregador.md      El contrato, escrito antes que el código
-  proveedor-externo.md       Qué pasó con Amadeus y qué opciones quedan
+  openapi.yaml               El contrato en formato máquina (generado)
+  analisis-rutas.md          Qué rutas se pueden buscar, con cifras, y los
+                             errores que se encontraron al revisar
+  modulo-3-comunicacion.md   Síncrono/asíncrono, semántica de entrega,
+                             concurrencia (reservas)
+  modulo-4-middleware.md     Middleware, contratos, registro de servicios
+  arquitectura-multi-nodo.md Los tres tipos de nodo y por qué
+  proveedor-externo.md       Qué pasó con Amadeus, Duffel y el resto
 
 servidor/                    Backend. Sólo usuarios/agregador dependen de
                              algo externo (Postgres, Redis) — el resto
                              sigue con node:http y node:sqlite nomás.
   datos-referencia/          Aeropuertos, aerolíneas y rutas reales (OpenFlights)
-  comun/
-    http.js                  Servidor HTTP compartido por los servicios
+                             y ciudades.json, que los agrupa en ciudades
+  comun/                     El middleware (docs/modulo-4-middleware.md)
+    http.js                  Servidor HTTP compartido por los servicios:
+                             rutas, JSON, gzip, /salud/live y /salud/ready,
+                             x-request-id, apagado ordenado
     base.js                  Apertura de la base SQLite propia de cada uno
     basePg.js                Pool de Postgres del nodo central
-    redis.js                 Circuit breaker + caché de última respuesta buena
+    redis.js                 Circuit breaker, caché y streams de eventos
     pedir.js                 Llamadas entre servicios, con AbortController
-    amadeus.js               OAuth2 (escrito, sin probar — ver docs)
-    salud-demo.js            Interruptor de fallos por servicio
+    descubrimiento.js        Registro, latido y descubrimiento con failover
+    lugares.js               Ciudades, aeropuertos y husos horarios
+    traza.js                 x-request-id a través de los servicios
+    config.js                Puertos, timeouts y presupuestos por proveedor
+    duffel.js, amadeus.js    Clientes de las APIs externas
+    salud-demo.js            Interruptores de fallo y de readiness
     contrasenas.js           Hash de contraseñas (node:crypto scrypt)
     jwt.js                   JWT HS256 a mano — sólo lo usa el agregador
     email.js                 ProveedorDeEmail: interfaz + ficticio
   vuelos/, hospedaje/, traslado/
     index.js                 El servicio
     proveedor.js             LA INTERFAZ + selector por variable de entorno
-    proveedor-ficticio.js    Implementación contra la base propia
-    proveedor-amadeus.js     Implementación contra la API real (vuelos/hospedaje)
+    proveedor-ficticio.js    Implementación contra la base propia (en vuelos:
+                             el motor de escalas)
+    proveedor-duffel.js      Implementación contra la API real de Duffel
+    proveedor-amadeus.js     Implementación contra Amadeus (escrita, sin probar)
     datos.js                 Esquema y semilla
+    reservas.js              (vuelos) cupos, descuento atómico, idempotencia
   usuarios/                  Agencias, login (registro/verificación/credenciales),
                              preferencias, config de admin y auditoría — en
                              Postgres, por agencia
   nodo-agencia/              Bitácora local (SQLite) + sync contra el
                              central. Una instancia por agencia.
+  notificaciones/            Consumidor de la cola de reservas (Redis Streams)
+  registro/                  Registro de servicios con health checks
   agregador/index.js         API Gateway: tenant, paralelo, timeout,
                              circuit breaker, caché, resultados parciales
+  agregador/reservas.js      POST /reservas: llamada síncrona a vuelos + evento
+  agregador/openapi.js       La descripción OpenAPI (fuente de docs/openapi.yaml)
   arrancar.mjs, matar.mjs
 
 src/
@@ -231,14 +278,19 @@ src/
     cliente.js               ÚNICO punto que sabe hablar con el agregador.
                              AbortController + timeout viven acá.
     vuelos.js, hospedaje.js, traslado.js  Un fetcher por vertical
+    lugares.js               Catálogo de ciudades y aeropuertos
+    reservas.js              Reservar con Idempotency-Key y reintentos
+    sistema.js               Estado de los servicios para el panel de admin
     perfil.js                Perfil, config de admin y gestión de administradores
     auth.js                  Registro, verificación, login (contrato §10)
-    tenant.js                Branding + verticales habilitados de la agencia
+    tenant.js                Branding, verticales habilitados y presupuestos
   estado/
     sesion.js                useSesion() — token + usuario, en localStorage
   dominio/
     estados.js               loading / ok / unavailable + motivos
     errores.js               ServicioNoDisponible
+    lugares.js               Búsqueda de ciudades y aeropuertos mientras se escribe
+    viaje.js                 Un viaje de uno o varios tramos y su total
     verticales.jsx           EL registro. Sumar un vertical = una entrada,
                              con sus propios camposBusqueda para las solapas.
   hooks/
@@ -252,7 +304,7 @@ src/
                              Login, Registro, AdminLogin
 pruebas/
   humo-fallos.mjs            Front: timeout, aislamiento, cancelación
-  humo-backend.mjs           Backend: aislamiento, paralelismo, preferencias
+  humo-backend.mjs           Backend: aislamiento, paralelismo, rutas, login
 ```
 
 ## Dos costuras que importan
@@ -275,10 +327,11 @@ actualizan solos.
 | Fase | Contenido |
 |---|---|
 | 3 ✓ | **Hecho.** Login real: email + verificación para clientes, usuario/contraseña aparte para administradores, JWT firmado por el agregador (`docs/contrato-agregador.md` §10) |
-| 4 | Proveedor externo. Amadeus Self-Service cerró en julio de 2026; ver `docs/proveedor-externo.md` |
+| 4 ✓ | **Hecho.** Proveedor externo: Duffel integrado y probado contra la API real (`PROVEEDOR=duffel`); Amadeus Self-Service cerró en julio de 2026. Ver `docs/proveedor-externo.md` |
 | 5 ✓ | **Hecho.** Circuit breaker y caché en Redis (§9), `docker compose` por nodo (`docs/arquitectura-multi-nodo.md`) |
 | 6 | Panel de admin: ya lee y escribe contra el backend, y ya gestiona administradores y permisos; falta mostrar la auditoría |
-| 7 | Reservas con concurrencia (opcional) |
+| 7 ✓ | **Hecho.** Reservas con concurrencia y canal asíncrono (`docs/modulo-3-comunicacion.md`) |
+| M4 ✓ | **Hecho.** Registro de servicios, health checks, versionado y OpenAPI (`docs/modulo-4-middleware.md`) |
 
 La auditoría de cambios de configuración (Módulo 5) ya está: se registra
 en `usuarios.db` y se consulta en `GET /api/admin/auditoria`.

@@ -13,7 +13,7 @@ const nombre = process.argv[2]
 const servicio = CONFIG[nombre]
 
 if (!servicio?.puerto) {
-  console.error(`Uso: node servidor/matar.mjs <vuelos|hospedaje|usuarios|agregador>`)
+  console.error(`Uso: node servidor/matar.mjs <vuelos|hospedaje|traslado|usuarios|notificaciones|agregador|registro>`)
   process.exit(1)
 }
 

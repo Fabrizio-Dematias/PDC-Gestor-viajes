@@ -1,6 +1,7 @@
 import { abrirBase } from '../comun/base.js'
 import { CONFIG } from '../comun/config.js'
 import { crearServicio, ErrorHttp } from '../comun/http.js'
+import { resolverLugar } from '../comun/lugares.js'
 import { crearSaludDemo } from '../comun/salud-demo.js'
 import { crearEsquema, sembrar } from './datos.js'
 import { crearProveedor } from './proveedor.js'
@@ -20,16 +21,23 @@ console.log(`[traslado] proveedor: ${proveedor.nombre}`)
  *  nota 1). */
 function validar({ destino, pasajeros }) {
   if (!destino) throw new ErrorHttp(400, 'falta el parámetro destino')
+  const lugar = resolverLugar(destino)
+  if (!lugar) throw new ErrorHttp(400, { error: `destino desconocido: ${destino}`, motivo: 'lugar_desconocido' })
   const n = Number(pasajeros ?? 1)
   if (!Number.isInteger(n) || n < 1 || n > 9) {
     throw new ErrorHttp(400, 'pasajeros debe ser un entero entre 1 y 9')
   }
-  return { destino, pasajeros: n }
+  return { destino: lugar.codigo, lugar, pasajeros: n }
 }
 
 crearServicio({
   nombre: 'traslado',
   puerto: CONFIG.traslado.puerto,
+  listo: () => {
+    if (!salud.listo) throw new Error('no listo (simulado)')
+    if (!base.prepare('SELECT 1 FROM ciudades LIMIT 1').get()) throw new Error('la base no tiene ciudades')
+    return { proveedor: proveedor.nombre }
+  },
   rutas: {
     ...salud.rutas,
 

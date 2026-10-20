@@ -9,6 +9,7 @@
  * ```
  * nombre: string
  * enviarCodigo({ email, codigo }) → Promise<{ enviado: boolean }>
+ * enviarConfirmacionReserva({ email, codigo, pasajeros }) → Promise<{ enviado: boolean }>
  * ```
  *
  * La implementación ficticia "envía" logueando en la consola del
@@ -24,6 +25,13 @@ function crearProveedorFicticio() {
     nombre: 'ficticio',
     async enviarCodigo({ email, codigo }) {
       console.log(`[email] (modo demo, no se manda nada por internet) código para ${email}: ${codigo}`)
+      return { enviado: true }
+    },
+    async enviarConfirmacionReserva({ email, codigo, pasajeros }) {
+      console.log(
+        `[email] (modo demo, no se manda nada por internet) confirmación de la reserva ${codigo} ` +
+          `(${pasajeros} ${pasajeros === 1 ? 'pasajero' : 'pasajeros'}) para ${email ?? '(sin email)'}`,
+      )
       return { enviado: true }
     },
   }

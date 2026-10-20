@@ -14,18 +14,22 @@ import { MOTIVO, textoDeMotivo } from '../../dominio/estados.js'
  * Lo importante para la evaluación: esto vive *dentro* de la sección. El
  * resto de la búsqueda sigue en pie alrededor.
  */
+/** El servicio respondió bien pero la búsqueda no tiene sentido: no hay
+ *  nada que reintentar, hay que cambiarla. */
+const BUSQUEDA_INVALIDA = new Set([MOTIVO.MISMO_LUGAR, MOTIVO.LUGAR_DESCONOCIDO, MOTIVO.SOLICITUD_INVALIDA])
+
 export default function AvisoNoDisponible({ motivo, onReintentar }) {
+  const invalida = BUSQUEDA_INVALIDA.has(motivo)
   const reintentable =
-    motivo !== MOTIVO.APAGADO_POR_ADMIN &&
-    motivo !== MOTIVO.DESACTIVADO_POR_USUARIO
+    !invalida && motivo !== MOTIVO.APAGADO_POR_ADMIN && motivo !== MOTIVO.DESACTIVADO_POR_USUARIO
 
   return (
     <Alert variant="destructive">
       <CircleAlert />
-      <AlertTitle>Esta sección no está disponible</AlertTitle>
+      <AlertTitle>{invalida ? 'No pudimos armar esta búsqueda' : 'Esta sección no está disponible'}</AlertTitle>
       <AlertDescription>
         <p>{textoDeMotivo(motivo)}</p>
-        <p>El resto de tu búsqueda no se vio afectado.</p>
+        {!invalida && <p>El resto de tu búsqueda no se vio afectado.</p>}
       </AlertDescription>
       {reintentable && onReintentar && (
         <AlertAction>

@@ -275,7 +275,67 @@ separado" para una demostración académica.
   centralizada: **cumplido** — un `agencia_id` transversal en Postgres
   y un front parametrizado por esa misma clave.
 - BD temporal por nodo de agencia que sincroniza al central:
-  **diseñada** en §2-3, pendiente de implementar en E5.
+  **implementada** (`servidor/nodo-agencia/`): bitácora local en SQLite
+  que se reenvía al central en segundo plano.
 - Conexión real (o slot para ella) en la fuente de datos de cada
   vertical: **ya es así hoy** para vuelos y hospedaje, y es el mismo
   molde para cualquier vertical nuevo.
+
+---
+
+## 9. Qué se sumó al nodo central y al de cómputo (Módulos 3 y 4)
+
+Los tres tipos de nodo y la regla de quién habla con quién no cambian.
+Lo que cambia es lo que hay adentro:
+
+```
+ Nodo Central      Agregador · Usuarios · Notificaciones · Registro · Postgres · Redis
+ Nodo de Cómputo   Vuelos · Hospedaje · Traslado
+
+ cada servicio ──(latido: "estoy acá")──▶ Registro ◀──(instancias sanas)── Agregador
+ Agregador ──(XADD reserva_confirmada)──▶ Redis ──(XREADGROUP)──▶ Notificaciones
+```
+
+| Componente nuevo | Nodo | Puerto | Para qué |
+|---|---|---|---|
+| **Notificaciones** | Central | 4005 | Consume el stream `reservas:eventos` de Redis y "envía" la confirmación de cada reserva. Proceso aparte a propósito: puede estar caído sin que ninguna reserva lo note. (Módulo 3, `docs/modulo-3-comunicacion.md`) |
+| **Registro de servicios** | Central | 4006 | Cada servicio de los dos nodos se anota al arrancar y renueva su latido; el registro verifica `/salud/ready` de cada instancia y el agregador descubre las sanas. (Módulo 4, `docs/modulo-4-middleware.md`) |
+
+### Qué implica para el despliegue
+
+- **Los dos nodos hablan con el registro, no entre sí.** Un worker se
+  anota con su `URL_PROPIA` —cómo lo ven los demás: en Docker, el nombre
+  del servicio (`http://vuelos:4001`)— y el agregador, que no sabe en qué
+  máquina corre, lo encuentra por nombre. Sumar una segunda instancia
+  del worker de vuelos es levantar otro contenedor con otro
+  `INSTANCIA_ID`: aparece sola.
+- **Nadie depende del registro para funcionar.** Si se cae, el agregador
+  vuelve a las `URL_*` fijas de la configuración, que son las que ya
+  usaba antes. Perderlo hace perder el descubrimiento dinámico, no el
+  sistema; es un punto único de falla declarado.
+- **`healthcheck` por servicio.** Los `docker-compose` usan
+  `/salud/ready` (no `/salud/live`) para decidir cuándo un servicio está
+  listo para recibir tráfico. `usuarios` arranca recién cuando Postgres
+  está sano; `notificaciones` y el agregador arrancan después del
+  registro (y si éste tardara, funcionan igual: ver el punto anterior).
+- **El agregador tiene que ver el mismo `PROVEEDOR` que el servicio de
+  vuelos.** De él deduce cuánto esperarle: con Duffel o Amadeus la
+  búsqueda tarda más y el presupuesto pasa de 2,5 s a 5,5 s. Los
+  `docker-compose` lo pasan a los dos (`PROVEEDOR=${PROVEEDOR:-ficticio}`).
+- **Cada servicio sigue con su base propia.** Las instancias del mismo
+  servicio comparten el archivo de su base (se verificó con dos procesos de
+  vuelos sobre un archivo); con
+  instancias en máquinas distintas habría que pasar la base de ese
+  servicio a un motor de red.
+- **Redis suma un tercer uso**: además de la caché y el circuit breaker,
+  el stream de eventos de reservas. Si Redis está caído, el sistema sigue
+  buscando y reservando; sólo se pierde la caché y el aviso (contrato §11).
+
+### Qué no cambió
+
+La regla central de la sección 2: los nodos de agencia sólo hablan con el
+agregador, los workers sólo reciben pedidos del agregador, y apagar un
+worker sólo tumba su propia sección de la pantalla. Lo nuevo la refuerza:
+un worker apagado deja de figurar entre las instancias sanas y el
+agregador lo informa como `sin_instancias` en lugar de esperar a que se
+agote un timeout.

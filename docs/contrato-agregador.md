@@ -1,13 +1,44 @@
 # Contrato del Agregador
 
-Versión 4 — login real y búsqueda diferenciada por vertical. Definido
-**antes** de escribir el backend, para que front y back puedan avanzar
-en paralelo sin bloquearse (Módulo 4: contratos entre componentes).
+Versión 5 — ciudades y escalas, reservas con cola, API versionada y
+descripción OpenAPI. Definido **antes** de escribir el backend, para que
+front y back puedan avanzar en paralelo sin bloquearse (Módulo 4:
+contratos entre componentes).
 
 Hoy lo cumplen dos implementaciones: el agregador real
 (`servidor/agregador/`) y un servidor simulado en memoria
 (`src/api/mock/servidor.js`) que permite correr el front solo. El front
 elige con la variable `VITE_API_URL` y no cambia nada más.
+
+La descripción **formal** de esta API —la que una máquina puede leer y
+validar— es `docs/openapi.yaml` (generada desde
+`servidor/agregador/openapi.js`) y se sirve en `/api/v1/openapi.json`;
+documentación interactiva en `/api/v1/docs`. Este documento explica el
+*porqué* de cada decisión; el YAML dice el *qué*, con precisión.
+
+**Cambios respecto de la versión 4**, anotados acá para que el
+documento no mienta. Ninguno rompe a un cliente de la versión 4:
+
+- Toda la API pasa a vivir bajo **`/api/v1`**; las rutas sin versión
+  siguen respondiendo, como alias deprecados (§12).
+- `origen` y `destino` aceptan un código de **ciudad** además del de
+  aeropuerto (`BUE` busca en Ezeiza y Aeroparque), y el catálogo
+  (`GET /api/v1/lugares`) pasa a ser de ciudades con sus aeropuertos
+  (§13). La forma anterior sigue en `/api/lugares` (deprecada).
+- Los vuelos pueden traer **escalas**: un itinerario con `segmentos`,
+  armado con rutas reales de hasta dos escalas, horas con el huso de cada
+  aeropuerto y, si hace falta, un cambio de aeropuerto dentro de la
+  ciudad (§2, §13).
+- `GET /api/v1/buscar/:vertical` suma un **400** (`mismo_lugar`,
+  `lugar_desconocido`, `solicitud_invalida`) para una búsqueda que no
+  tiene sentido: no es un servicio caído y no cuenta para el circuit
+  breaker (§1).
+- Nuevo: **reservas** de vuelos (`POST /api/v1/reservas`, con
+  `Idempotency-Key`) y el aviso de confirmación por una cola (§11).
+- Nuevo: `motivo: sin_instancias` (§5), `/salud/live` y `/salud/ready`,
+  `GET /api/v1/sistema/servicios` y el registro de servicios (§14).
+- `GET /api/v1/tenant/config` informa además cuánto espera el agregador
+  a cada vertical (`presupuestos_ms`, §3).
 
 **Cambios respecto de la versión 3**, anotados acá para que el
 documento no mienta:
@@ -60,6 +91,10 @@ backend y anotados acá para que el documento no mienta:
 
 ## 1. Endpoints
 
+Todas las rutas de este documento se escriben sin versión por brevedad
+(`/api/buscar/:vertical`); la ruta vigente es la misma con `/v1`
+(`/api/v1/buscar/:vertical`). Ver §12.
+
 ### `GET /api/buscar/:vertical`
 
 Búsqueda de **un solo** vertical. Es el que usa el front.
@@ -71,13 +106,17 @@ Verticales válidos: `vuelos`, `hospedaje`, `traslado`.
 
 | Param       | Tipo   | Req. | Ejemplo      |
 |-------------|--------|------|--------------|
-| `origen`    | IATA   | sí¹  | `EZE`        |
-| `destino`   | IATA   | sí   | `MAD`        |
+| `origen`    | lugar² | sí¹  | `BUE`        |
+| `destino`   | lugar² | sí   | `MAD`        |
 | `ida`       | ISO    | sí   | `2026-10-12` |
 | `vuelta`    | ISO    | no   | `2026-10-22` |
 | `pasajeros` | int    | no   | `2`          |
 
 ¹ `origen` no aplica a `hospedaje`; se ignora si viene.
+
+² Un **lugar** es un código de tres letras que puede ser el de un
+aeropuerto (`EZE`) o el de una ciudad (`BUE`, que busca en todos sus
+aeropuertos). Ver §13.
 
 **200 OK**
 
@@ -103,7 +142,24 @@ circuit breaker está abierto.
 ```
 
 `motivo` ∈ `timeout` | `error` | `circuito_abierto` | `apagado_por_admin`
-| `desactivado_por_usuario`.
+| `desactivado_por_usuario` | `sin_instancias`.
+
+**400 Bad Request** — la búsqueda no tiene sentido. El servicio está sano
+y respondió: **no** es un fallo, y por eso no cuenta para el circuit
+breaker (tres búsquedas mal armadas no pueden dejar a todos sin vuelos
+durante 30 s).
+
+```json
+{
+  "vertical": "vuelos",
+  "estado": "rejected",
+  "motivo": "mismo_lugar",
+  "error": "el origen y el destino son el mismo lugar",
+  "generado_en": "2026-10-16T11:32:01.118Z"
+}
+```
+
+`motivo` ∈ `mismo_lugar` | `lugar_desconocido` | `solicitud_invalida`.
 
 > **Regla dura:** un vertical caído devuelve **503 con cuerpo JSON
 > válido**, nunca un 500 sin cuerpo ni un HTML de error. El front tiene
@@ -197,18 +253,68 @@ vertical) y `precio` (`{ monto: number, moneda: "ARS"|"USD"|"EUR" }`).
 
 ```json
 {
-  "id": "AR1132-20261012",
-  "aerolinea": "Aerolíneas Argentinas",
-  "codigo_aerolinea": "AR",
+  "id": "IBEZEMAD-1-2026-11-20",
+  "aerolinea": "Iberia Airlines",
+  "codigo_aerolinea": "IB",
   "origen": "EZE",
   "destino": "MAD",
-  "salida": "2026-10-12T23:55:00Z",
-  "llegada": "2026-10-13T16:30:00Z",
-  "duracion_min": 755,
+  "salida": "2026-11-20T11:45:00.000Z",
+  "llegada": "2026-11-21T04:56:00.000Z",
+  "duracion_min": 791,
   "escalas": 0,
-  "precio": { "monto": 1284000, "moneda": "ARS" }
+  "precio": { "monto": 950000, "moneda": "ARS" }
 }
 ```
+
+**Las horas.** `salida` y `llegada` son la hora de *reloj* de cada
+aeropuerto, escritas con `Z`: el front las muestra tal cual, sin convertir
+al huso de quien mira. El ejemplo sale a las 11:45 de Buenos Aires y
+llega a las 04:56 del día siguiente en Madrid (que va 4 horas adelante):
+la diferencia entre las dos horas no es la duración (791 min = 13 h 11),
+es la duración **más** el huso. Antes la llegada se calculaba sumando la duración sin mirar el
+huso y quedaba corrida esa diferencia; y las horas que devolvía Duffel,
+que no traen `Z`, el navegador las leía como hora propia y las corría por
+su huso (un vuelo de las 14:42 se veía a las 17:42 en Argentina).
+`duracion_min` es la duración real de punta a punta, escalas incluidas
+(Duffel la manda con días cuando el viaje pasa de las 24 h, `P1DT4H15M`;
+el proveedor la convierte, y si falta la calcula con los husos).
+
+**Escalas: `segmentos` (campo opcional).** Cuando el itinerario tiene
+escalas trae además un segmento por tramo:
+
+```json
+{
+  "id": "ARTUCAEP-1-2026-11-20~IBEZEMAD-1-2026-11-20",
+  "aerolinea": "Aerolineas Argentinas + Iberia Airlines",
+  "codigo_aerolinea": "AR",
+  "origen": "TUC", "destino": "MAD",
+  "salida": "2026-11-20T05:30:00.000Z", "llegada": "2026-11-21T04:56:00.000Z",
+  "duracion_min": 1166, "escalas": 1,
+  "precio": { "monto": 932000, "moneda": "ARS" },
+  "segmentos": [
+    { "origen": "TUC", "destino": "AEP",
+      "salida": "2026-11-20T05:30:00.000Z", "llegada": "2026-11-20T07:25:00.000Z",
+      "duracion_min": 115, "aerolinea": "Aerolineas Argentinas", "codigo_aerolinea": "AR",
+      "espera_min": 260, "cambio_aeropuerto": true },
+    { "origen": "EZE", "destino": "MAD",
+      "salida": "2026-11-20T11:45:00.000Z", "llegada": "2026-11-21T04:56:00.000Z",
+      "duracion_min": 791, "aerolinea": "Iberia Airlines", "codigo_aerolinea": "IB" }
+  ]
+}
+```
+
+- El `id` de un itinerario con escalas junta los ids de sus tramos con
+  `~`; la reserva descuenta el cupo de cada tramo (§11).
+- `espera_min` es la espera en el aeropuerto de llegada hasta el
+  próximo vuelo; el último tramo no lo trae.
+- `cambio_aeropuerto: true` avisa que el próximo vuelo sale de **otro
+  aeropuerto de la misma ciudad** (llegás a Aeroparque y salís de
+  Ezeiza): es una sola escala, con al menos 4 h de espera, y el traslado
+  por tierra corre por cuenta del pasajero.
+- `segmentos` es un campo **agregado sin romper a nadie**: un cliente
+  que no lo conoce lo ignora y sigue mostrando origen, destino, horas,
+  escalas y precio. Es el ejemplo de la tabla de versionado del Módulo 4
+  (§12): agregar un campo opcional no es un cambio que rompa.
 
 **`hospedaje[]`**
 
@@ -251,14 +357,27 @@ es exactamente el punto del patrón (Módulo 4).
 
 ## 3. Timeouts y presupuesto de tiempo
 
-| Tramo                        | Presupuesto |
-|------------------------------|-------------|
-| Front → agregador            | 3000 ms     |
-| Agregador → vertical         | 2500 ms     |
-| Vertical → Amadeus           | 1800 ms     |
+| Tramo                        | Base propia | Con Duffel (`PROVEEDOR=duffel`) |
+|------------------------------|-------------|---------------------------------|
+| Front → agregador            | 3000 ms     | 6000 ms (vuelos)                |
+| Agregador → vertical         | 2500 ms     | 5500 ms (vuelos)                |
+| Vertical → Amadeus / Duffel  | 1800 ms     | 5000 ms                         |
 
 Cada capa se corta antes que la de arriba, así el que responde "no
 disponible" es siempre el más informado, no el más impaciente.
+
+**Por qué vuelos tiene su propio presupuesto.** Con la base propia una
+búsqueda tarda milisegundos y 2,5 s sobran. Con Duffel la búsqueda es
+síncrona contra varias aerolíneas y tarda entre 1,5 y 3,5 s (medido hoy:
+1,4–2,8 s): con 2,5 s una búsqueda que iba perfecta aparecía "no
+disponible por timeout". El presupuesto de vuelos se deduce de
+`PROVEEDOR` (el agregador tiene que ver la misma variable que el servicio
+de vuelos) y los demás verticales conservan 2,5 s. **El front no lo
+adivina**: `GET /api/v1/tenant/config` informa
+`presupuestos_ms: { vuelos, hospedaje, traslado }` y el front se corta
+medio segundo después de cada uno, así que sigue valiendo "cada capa
+antes que la de arriba" con cualquier proveedor. Mientras esa respuesta
+no llega rige el default de 3 s.
 
 El corte se hace con `AbortController`, no con `Promise.race`. La
 diferencia importa: `race` deja la request colgada consumiendo un socket;
@@ -338,6 +457,10 @@ Un vertical, en cualquier punto del sistema, está en exactamente uno de:
 | `unavailable` | falló, timeout, apagado o circuito abierto  | aviso dentro de la sección   |
 
 Este enum atraviesa front y back y es el mismo en los dos lados.
+
+`motivo` incluye `sin_instancias` (§14): el registro de servicios sabe
+de este servicio y ninguna de sus instancias está lista. No se llama a
+quien dijo "no estoy listo".
 
 **Decisión de diseño:** un vertical apagado por el admin y uno caído solo
 producen el mismo estado `unavailable` y el mismo componente visual. Se
@@ -544,3 +667,352 @@ además, un permiso concreto en `usuario.permisos`:
 
 Un administrador sólo ve y crea administradores **de su propia
 agencia** — `agencia_id` sale del token, no del cuerpo de la request.
+
+---
+
+## 11. Reservas (Módulo 3: comunicación síncrona y asíncrona)
+
+Reservar es el único flujo del sistema que **escribe** algo con valor
+(asientos) y el que obliga a elegir, punto por punto, qué semántica de
+comunicación corresponde. La descripción formal está en
+`docs/openapi.yaml`; acá el razonamiento.
+
+### `POST /api/reservas`
+
+```
+Idempotency-Key: 0b9c6a52-…                 ← obligatoria
+{ "vuelos": ["AREZEMAD-1-2026-11-20", "IBMADEZE-0-2026-11-30"],
+  "pasajeros": 2,
+  "contacto": { "email": "viajero@demo.test" },
+  "nombres": ["Ana García", "Luis Pérez"] }
+```
+
+Un vuelo por tramo (ida y vuelta, multidestino). Sólo viajan la cantidad
+de pasajeros, sus nombres y el email de contacto; los documentos y fechas
+de nacimiento se piden en pantalla pero se quedan en el navegador.
+
+| Código | Cuándo | Cuerpo |
+|---|---|---|
+| **201** | reserva creada | `Reserva` + `evento_encolado` |
+| **200** | la misma `Idempotency-Key` ya existía | la misma `Reserva`, con `repetida: true` |
+| **400** | falta la `Idempotency-Key`, o el pedido es inválido | `{ error, motivo }` |
+| **404** | el vuelo no existe o no se puede reservar acá (las ofertas de Duffel no tienen cupo local) | `motivo: vuelo_desconocido` |
+| **409** | no quedan asientos suficientes | `motivo: sin_cupo`, `vuelo_id`, `libres` |
+| **422** | la clave se usó para otro pedido, o el vuelo ya salió | `motivo: clave_reutilizada` \| `vuelo_pasado` |
+| **503** | vuelos no respondió | `reintentable: true` |
+
+`GET /api/reservas/:id` devuelve la reserva y el estado de su aviso:
+`notificacion.estado` ∈ `enviada` | `pendiente` | `no_disponible`.
+
+### Qué es síncrono y por qué
+
+**La reserva.** El usuario está mirando la pantalla y necesita saber *en
+ese momento* si consiguió el asiento. El agregador llama a vuelos y
+espera, con timeout de 2,5 s cortado por `AbortController`.
+
+Con un timeout **no se sabe si la reserva se hizo**: puede que vuelos la
+haya confirmado y la respuesta se haya perdido. Por eso el cliente manda
+siempre una `Idempotency-Key` y, ante un 503, **reintenta con la misma
+clave**: si ya existía se devuelve esa reserva (200) sin descontar otro
+asiento. "Al menos una vez" desde el cliente + idempotencia en el
+servidor = efecto de una sola vez. El front genera la clave una vez al
+llegar a la pantalla de datos y la reusa en cada reintento (un doble clic
+tampoco reserva dos veces).
+
+### Qué es asíncrono y por qué
+
+**El aviso de confirmación.** No tiene que frenar la reserva ni hacerla
+fallar, y el servicio que lo manda puede estar caído. El agregador
+publica el evento `reserva_confirmada` en un **stream de Redis**
+(`reservas:eventos`, XADD) y responde **sin esperar a nadie**: lo único
+que aguarda es que Redis lo haya recibido. El servicio `notificaciones`
+—un proceso aparte, puerto 4005— lo consume con un grupo de consumidores
+(XREADGROUP), "envía" la confirmación y recién entonces lo da por
+entregado (XACK).
+
+| Punto del sistema | Canal | Semántica de entrega | Por qué |
+|---|---|---|---|
+| Búsqueda: navegador → agregador → verticales | síncrono, en paralelo | request/response con timeout, sin reintentos automáticos | El usuario espera resultados ya; al llamar en paralelo la latencia es la del más lento y no la suma. |
+| Reserva: agregador → vuelos | síncrono | al menos una vez (cliente) + idempotencia (servidor) | Necesita saber si consiguió el asiento; ante un timeout, reintentar con la misma clave es seguro. |
+| Aviso de reserva: agregador → notificaciones | asíncrono (Redis Streams) | al menos una vez + consumidor idempotente | El aviso no debe frenar ni hacer fallar la reserva y el consumidor puede estar caído. Perder un aviso es peor que recibirlo dos veces; el duplicado se descarta por `reserva_id`. |
+| Bitácora: nodo de agencia → central | asíncrono (cola local + sincronización) | al menos una vez (se reintenta hasta que el central confirma) | Guardar la búsqueda nunca debe demorar ni romper la pantalla. |
+
+Semánticas descartadas: *como máximo una vez* (una reserva o un aviso
+perdido son inaceptables acá: sólo sirve para datos descartables, como
+la lectura de un sensor) y *exactamente una vez* (no se puede garantizar
+de punta a punta sólo con la red; se aproxima combinando "al menos una
+vez" con deduplicación por un identificador explícito, que es lo que
+hace el sistema).
+
+Si Redis está caído, la reserva **igual se confirma** y la respuesta lo
+dice (`evento_encolado: false`): perder el aviso es mejor que perder la
+reserva. Ese aviso no se reintenta solo (sí si el cliente repite el
+pedido con la misma clave); una versión más robusta guardaría el evento
+junto con la reserva (patrón *outbox*).
+
+### El caso de concurrencia
+
+**El invariante:** en cada vuelo, los asientos vendidos nunca superan la
+capacidad. Dos clientes que reservan a la vez el último asiento: si cada
+pedido lee "queda 1", espera la confirmación del proveedor y después
+escribe, los dos creen que ganaron (actualización perdida) y el vuelo
+queda sobrevendido.
+
+- **Descuento atómico** (`servidor/vuelos/reservas.js`): comprobar y
+  escribir son una sola sentencia,
+  `UPDATE cupos SET ocupados = ocupados + :n WHERE vuelo_id = :id AND
+  ocupados + :n <= capacidad`, dentro de `BEGIN IMMEDIATE`. Si no
+  actualiza ninguna fila, no había lugar → 409. La espera del proveedor
+  queda *fuera* de la sección crítica. Defensa en profundidad: la tabla
+  tiene `CHECK (ocupados <= capacidad)`.
+- **Idempotencia**: el `reserva_id` es la clave primaria de la reserva.
+- **Consumidor idempotente**: la tabla de notificaciones usa el
+  `reserva_id` como clave primaria; el mismo evento dos veces envía un
+  solo mensaje.
+- **Varios tramos, todo o nada**: una reserva de ida y vuelta descuenta
+  el cupo de cada tramo en la misma transacción; si uno falla, vuelve
+  atrás el resto.
+
+Medido disparando los pedidos a la vez contra el sistema real: primero
+el defecto (20 pedidos por 1 asiento terminan con 20 confirmadas y el
+vuelo sobrevendido) y después la solución (exactamente 1 de 20). Medido
+además con **dos procesos de vuelos** distintos sobre el mismo archivo: 60 pedidos repartidos entre los dos, 5 asientos → 5
+confirmadas, 0 de sobreventa (`BEGIN IMMEDIATE` toma el bloqueo de
+escritura de la base, así que protege entre procesos).
+
+Alternativa de modelo de actores (Módulo 4), también medida: un
+buzón por vuelo atiende los pedidos de a uno y la lógica ingenua deja de
+ser peligrosa. Da el mismo resultado con una instancia, pero el buzón
+vive en la memoria de un proceso: con dos instancias la carrera volvería.
+Por eso el modo por defecto es el atómico.
+
+---
+
+## 12. Versionado y descripción formal (Módulo 4: contratos)
+
+### `/api/v1`
+
+Toda la API pública vive bajo `/api/v1`. Las rutas sin versión
+(`/api/buscar/...`) siguen respondiendo exactamente lo mismo pero son
+**alias deprecados**: traen `Deprecation: true` y `Link: <…/api/v1/…>;
+rel="successor-version"` (RFC 8594), para que un cliente viejo siga
+andando y uno atento sepa adónde mudarse. Las rutas operativas
+(`/salud`, `/salud/live`, `/salud/ready`) no se versionan: las consulta la
+infraestructura, no los clientes de la API.
+
+Qué cambia la versión y qué no, siguiendo la tabla del Módulo 4:
+
+| Cambio | ¿Rompe a un cliente? | ¿Sube la versión? |
+|---|---|---|
+| Agregar un campo opcional (`segmentos`, `presupuestos_ms`, `cambio_aeropuerto`) | No: los clientes viejos lo ignoran | No |
+| Agregar un endpoint (`/reservas`, `/sistema/servicios`) | No: nadie lo llamaba | No |
+| Agregar un `motivo` nuevo (`sin_instancias`) | Sólo si el cliente no tiene un caso por defecto (el front lo tiene) | No |
+| Cambiar la forma de un cuerpo ya publicado | Sí | **Sí** |
+| Quitar o renombrar un campo, cambiar un tipo, volver obligatorio algo opcional | Sí | **Sí** |
+
+El único cambio de este tipo de la versión 5 es el cuerpo de `/lugares`
+(de aeropuertos sueltos a ciudades con aeropuertos): por eso la forma
+anterior queda en `/api/lugares` —sin versión, deprecada— y la nueva en
+`/api/v1/lugares`.
+
+### OpenAPI
+
+`servidor/agregador/openapi.js` es la **única fuente de verdad** de la
+descripción de la API. De ahí salen:
+
+- `GET /api/v1/openapi.json` — el documento.
+- `GET /api/v1/docs` — documentación interactiva (Swagger UI; carga la
+  interfaz desde un CDN, así que la página necesita internet; el
+  documento en sí no).
+- `docs/openapi.yaml` — el mismo documento en YAML, generado con
+  `npm run docs:openapi`.
+
+Contrato de interfaz (el acuerdo, en prosa: este documento) y
+descripción de servicio (el acuerdo en un formato verificable: el YAML)
+son dos cosas distintas pero relacionadas; confundirlas es lo que
+produce integraciones frágiles.
+
+### JSON hacia afuera, ¿y hacia adentro?
+
+Todo viaja como JSON sobre HTTP, también entre los servicios. La regla
+práctica del Módulo 4 es *REST/JSON hacia afuera, gRPC/protobuf hacia
+adentro*, y esta es la cuenta para decidir si corresponde:
+
+| Pregunta | Acá |
+|---|---|
+| ¿Quién consume la API? | El navegador (que sólo habla JSON/HTTP) y servicios propios. |
+| ¿Controlamos los dos extremos? | Sí, entre servicios. |
+| ¿Cuánto tráfico hay? | Decenas de pedidos por segundo en una demo: la diferencia de tamaño y velocidad entre JSON y protobuf no se nota. |
+| ¿Hace falta streaming bidireccional? | No. |
+
+Con poco volumen "la diferencia de performance no justifica la
+complejidad extra": un `.proto` compartido, generación de stubs y
+HTTP/2 en cada servicio a cambio de nada medible. Se deja JSON, con el
+contrato en OpenAPI, que es el que sí aporta algo (documentación, cliente
+generable, validación). Si el tráfico interno creciera, el lugar para
+cambiarlo es `servidor/comun/pedir.js` (cliente) y `servidor/comun/http.js`
+(servidor): son los únicos dos archivos que saben cómo se serializa.
+
+---
+
+## 13. Lugares: ciudades, aeropuertos y escalas
+
+### El problema que corrige
+
+Buscar de Buenos Aires a Madrid no funcionaba si se elegía el aeropuerto
+equivocado. El buscador mostraba dos entradas "Buenos Aires" idénticas
+(Ezeiza y Aeroparque, la primera Aeroparque) y sólo dejaba elegir
+destinos con **vuelo directo** desde el origen elegido, tomados de un
+dataset (OpenFlights, 2014): de Aeroparque no sale ningún intercontinental,
+así que Madrid directamente no aparecía y el botón de buscar quedaba
+deshabilitado. Peor: ese filtro dejaba afuera el 99,6 % de los pares
+posibles (36 383 pares directos de ~9,8 millones entre aeropuertos con
+servicio), aunque se pudiera viajar sin problema con una escala.
+
+Las tres causas, y qué se hizo con cada una (`docs/analisis-rutas.md` tiene
+el análisis completo con números):
+
+1. **Aeropuertos en vez de ciudades.** Ahora un *lugar* es una **ciudad**
+   (`BUE`) o un aeropuerto (`EZE`); las ciudades agrupan a los
+   aeropuertos de la misma localidad (mismo país, mismo nombre y a menos
+   de 120 km). 5 814 ciudades de 6 071 aeropuertos; 194 con más de uno.
+   Para las que tienen un código metropolitano oficial de IATA (BUE,
+   LON, NYC, PAR…) se usa ése — es el que Duffel entiende, y se verificó
+   contra su API real: `BUE→MAD` devuelve las ofertas de los dos aeropuertos
+   en una sola búsqueda.
+2. **Sólo directos.** El destino ya no se limita por el origen. El
+   proveedor de la base propia arma itinerarios con **una y dos escalas**
+   sobre las rutas reales, con horarios que cierran (espera mínima, y las
+   esperas absurdas se descartan). Duffel ya devolvía conexiones por su
+   cuenta.
+3. **Cambio de aeropuerto.** Un viaje Tucumán → Madrid real es Tucumán →
+   Aeroparque → *traslado* → Ezeiza → Madrid. Se modela como una escala
+   con `cambio_aeropuerto` (§2), con al menos 4 h de espera.
+
+### `GET /api/v1/lugares`
+
+```json
+{ "version": 1, "generado_en": "…",
+  "ciudades": [
+    { "codigo": "BUE", "nombre": "Buenos Aires", "pais": "Argentina",
+      "trafico": 265, "vuelos": true,
+      "aeropuertos": [
+        { "iata": "EZE", "nombre": "Ezeiza",     "vuelos": true },
+        { "iata": "AEP", "nombre": "Aeroparque", "vuelos": true } ] } ] }
+```
+
+~5 800 ciudades, ~900 KB; con `Accept-Encoding: gzip` (que el navegador
+manda solo) viaja en ~130 KB. El agregador lo guarda en memoria una hora:
+si vuelos se cae después de la primera vez, el buscador sigue pudiendo
+elegir ciudades. El front filtra en el navegador mientras se escribe.
+
+`ciudades[].vuelos` indica si algún aeropuerto de la ciudad tiene vuelos
+(la pestaña de vuelos no ofrece Torrejón ni Cuatro Vientos, que no
+tienen); hospedaje y traslado ofrecen todas, porque alojarse o pedir un
+traslado no depende de que haya un vuelo.
+
+### Hospedaje y traslado: por ciudad
+
+Se aloja uno en la ciudad, no en el aeropuerto: `destino=ROM` y
+`destino=FCO` devuelven los mismos alojamientos, y `destino=TOJ`
+(Torrejón, sin vuelos) resuelve a Madrid. Antes la base guardaba una
+copia de los mismos 8 hoteles por cada aeropuerto (Fiumicino y Ciampino
+devolvían hoteles idénticos, con ids distintos) y la ciudad aparecía
+repetida en el selector. Ahora el servicio lleva cualquier código de la
+ciudad (el de la ciudad o el de cualquiera de sus aeropuertos) a su
+aeropuerto principal y muestra un solo conjunto.
+
+### Qué se garantiza y qué no
+
+- Si hay un recorrido de hasta dos escalas en la red de rutas, la
+  búsqueda devuelve resultados. Entre las 100 ciudades con más tráfico, el
+  **100 %** de los pares tiene resultados (37,5 % directos). Entre las
+  400 más conectadas, el 99,6 %. Desde las ciudades argentinas hacia esas
+  100, el 85 % (el resto necesita tres escalas o más; el detalle y las
+  causas en `docs/analisis-rutas.md`).
+- Si no lo hay (un recorrido que necesita tres o más escalas con las
+  rutas del dataset), devuelve `items: []`: ni se inventa un vuelo ni es
+  un error.
+- Qué es real y qué es simulado: las rutas, los aeropuertos y las
+  aerolíneas son reales (OpenFlights, ODbL); los horarios, los precios y
+  las combinaciones son una simulación plausible. El dataset es de 2014:
+  **no debe presentarse como información de vuelos vigente.** Con
+  `PROVEEDOR=duffel` los vuelos son de una API real (en modo de prueba).
+
+---
+
+## 14. Salud y descubrimiento de servicios (Módulo 4)
+
+### Vivo no es lo mismo que listo
+
+Cada servicio expone dos sondas, con dos consecuencias distintas:
+
+| Sonda | Pregunta | Si falla | Depende de |
+|---|---|---|---|
+| `GET /salud/live` | ¿el proceso responde? | hay que **reiniciarlo** | nada externo |
+| `GET /salud/ready` | ¿puede atender tráfico ahora? | hay que **dejar de mandarle tráfico** (no reiniciarlo) | sus dependencias: la base, Redis |
+
+La liveness *no* depende de la base a propósito: si dependiera, una caída
+de Postgres reiniciaría a todos los servicios sin motivo. La readiness sí
+la consulta, porque su consecuencia no es reiniciar sino esperar. Un
+servicio puede estar vivo y no listo (el de usuarios cuando Postgres
+todavía no contesta: arranca igual, atiende `/salud/live` y responde 503
+en `/salud/ready` hasta que la base está). `GET /salud` sigue existiendo
+con el detalle (contadores, proveedor); es lo que usa el panel de fallos.
+
+### Registro y descubrimiento
+
+`servidor/registro/` (puerto 4006) es un registro de servicios mínimo, al
+estilo de Consul:
+
+1. **Registro.** Cada servicio, al arrancar, se anota con nombre,
+   dirección e id de instancia, y lo repite cada 3 s (`PUT`, que hace de
+   latido). Al cerrarse ordenadamente se da de baja (`DELETE`); si muere
+   sin avisar, el TTL (10 s) lo saca.
+2. **Health checks.** El registro consulta `/salud/ready` de cada
+   instancia cada 2 s y la marca `pasando` o `critico`. *Registrado* no es
+   *listo*: registrarse sólo dice que existe y dónde está.
+3. **Descubrimiento del lado del cliente.** El agregador baja cada 2 s la
+   lista de instancias sanas y reparte por turnos entre ellas
+   (`servidor/comun/descubrimiento.js`). Es *client-side discovery*, como
+   Netflix Eureka; el *server-side* sería un balanceador fijo adelante, que
+   es lo que hacen Docker Compose o Kubernetes con el nombre de un
+   servicio.
+
+Tres casos, y qué se hace en cada uno:
+
+| Situación | Qué hace el cliente |
+|---|---|
+| El registro responde y hay instancias sanas | usa una (por turnos) |
+| El registro responde y **ninguna** está lista | `motivo: sin_instancias`: no llama a quien dijo "no estoy listo" |
+| El registro no responde (o nunca oyó hablar del servicio) | usa las direcciones fijas de `config.js` (`URL_*`) |
+
+El registro es un punto único de falla (Consul y etcd lo evitan
+replicándose con Raft, algo que acá no se justifica) y por eso **nadie
+depende de él para funcionar**: perderlo hace perder el descubrimiento
+dinámico, no el sistema; al volver, los servicios se re-anotan solos con
+su próximo latido. Medido: con el registro muerto las búsquedas siguen en
+200, y al levantarlo vuelven a registrarse en segundos.
+
+**Failover.** La lista puede tener hasta ~4 s de antigüedad (el registro
+tarda su ciclo en enterarse y el agregador otro en refrescar): una
+instancia que acaba de morir seguiría recibiendo pedidos. Por eso, ante un
+fallo de *conexión* —no ante un timeout, donde ya se gastó el presupuesto
+del usuario y la instancia pudo haber procesado el pedido— el cliente
+reintenta una vez contra otra instancia y marca a la caída como sospechosa
+unos segundos (*outlier detection* pasivo, complemento del health check
+activo). Sólo para operaciones que se pueden repetir sin efecto doble: las
+búsquedas y la reserva, que lleva su `Idempotency-Key`. Medido con dos
+instancias de vuelos y una caída en seco: **sin failover, 4 de 8 búsquedas
+fallaban; con failover, 0.**
+
+`GET /api/v1/sistema/servicios` (sólo administradores) devuelve lo que ve
+el registro; el panel de administración lo muestra: levantar una instancia
+nueva aparece sola, y una que deja de estar lista pasa a "no lista" en
+segundos (medido con procesos reales: instancia extra, reparto,
+viva-pero-no-lista, caída en seco, baja ordenada).
+
+Un mensaje de cada servicio lleva además un `x-request-id` (lo genera el
+primero que recibe el pedido y se reenvía a cada servicio al que llama), así
+una búsqueda que tocó el agregador, vuelos y usuarios se sigue de punta a
+punta buscando una sola cadena en los logs.

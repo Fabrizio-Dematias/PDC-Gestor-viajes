@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, ScrollRestoration } from 'react-router-dom'
 import { useAgencia } from './api/tenant.js'
 import PanelFallos from './components/demo/PanelFallos.jsx'
 import Nav from './components/layout/Nav.jsx'
@@ -37,6 +37,11 @@ export default function App() {
       <main className="contenido">
         <Outlet />
       </main>
+      {/* Al pasar de una pantalla a la siguiente (resultados → tarifas →
+          datos → confirmación) se arranca arriba; al volver con "atrás" se
+          recupera donde se estaba. Sin esto, la pantalla nueva aparecía
+          con el desplazamiento de la anterior y cortada por arriba. */}
+      <ScrollRestoration />
       {usuario?.rol === 'admin' && <PanelFallos />}
     </>
   )

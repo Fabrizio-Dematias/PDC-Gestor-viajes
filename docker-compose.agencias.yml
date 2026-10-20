@@ -21,6 +21,8 @@ services:
       AGENCIA_ID: ag-demo
       PUERTO_NODO_AGENCIA: 4100
       URL_AGREGADOR: http://agregador:4000
+      URL_REGISTRO: http://registro:4006
+      URL_PROPIA: http://nodo-agencia-demo:4100
     ports:
       - '4100:4100'
     networks: [gestor-viajes]
@@ -32,6 +34,8 @@ services:
       AGENCIA_ID: ag-sur
       PUERTO_NODO_AGENCIA: 4101
       URL_AGREGADOR: http://agregador:4000
+      URL_REGISTRO: http://registro:4006
+      URL_PROPIA: http://nodo-agencia-sur:4101
     ports:
       - '4101:4101'
     networks: [gestor-viajes]

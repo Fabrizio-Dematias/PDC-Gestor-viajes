@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { HAY_BACKEND, URL_API } from './cliente.js'
+import { HAY_BACKEND, URL_API, V1 } from './cliente.js'
 import { SALUD, useCaos } from './mock/caos.js'
 import { IDS_VERTICALES } from '../dominio/verticales.jsx'
 
@@ -40,7 +40,7 @@ export function useSaludSimulada() {
   const fijar = useCallback(
     async (vertical, estado) => {
       if (HAY_BACKEND) {
-        await fetch(`${URL_API}/api/demo/salud/${vertical}`, {
+        await fetch(`${URL_API}${V1}/demo/salud/${vertical}`, {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ estado }),

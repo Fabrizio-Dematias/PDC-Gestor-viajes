@@ -18,6 +18,8 @@ export function crearProveedorAmadeus() {
     nombre: 'amadeus',
 
     async buscar({ destino, ida, vuelta, noches, pasajeros }) {
+      // `destino` ya es el código de ciudad (BUE, no EZE), que es lo que
+      // Amadeus espera en `cityCode`.
       const listado = await consultarAmadeus('/v1/reference-data/locations/hotels/by-city', {
         cityCode: destino,
         radius: '20',

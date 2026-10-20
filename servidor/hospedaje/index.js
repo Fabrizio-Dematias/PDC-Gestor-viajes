@@ -1,6 +1,7 @@
 import { abrirBase } from '../comun/base.js'
 import { CONFIG } from '../comun/config.js'
 import { crearServicio, ErrorHttp } from '../comun/http.js'
+import { resolverLugar } from '../comun/lugares.js'
 import { crearSaludDemo } from '../comun/salud-demo.js'
 import { crearEsquema, sembrar } from './datos.js'
 import { crearProveedor } from './proveedor.js'
@@ -22,6 +23,10 @@ const NOCHES_POR_DEFECTO = 3
 
 function validar({ destino, ida, vuelta, pasajeros }) {
   if (!destino) throw new ErrorHttp(400, 'falta el parámetro destino')
+  // El destino es una ciudad (o un aeropuerto, que se resuelve a su
+  // ciudad): el alojamiento no depende de por qué aeropuerto se llegue.
+  const lugar = resolverLugar(destino)
+  if (!lugar) throw new ErrorHttp(400, { error: `destino desconocido: ${destino}`, motivo: 'lugar_desconocido' })
   if (!FECHA.test(ida ?? '')) throw new ErrorHttp(400, 'ida debe ser una fecha AAAA-MM-DD')
   if (vuelta && !FECHA.test(vuelta)) throw new ErrorHttp(400, 'vuelta debe ser AAAA-MM-DD')
 
@@ -33,12 +38,17 @@ function validar({ destino, ida, vuelta, pasajeros }) {
   const dias = vuelta ? Math.round((new Date(vuelta) - new Date(ida)) / 86_400_000) : 0
   if (vuelta && dias <= 0) throw new ErrorHttp(400, 'vuelta debe ser posterior a ida')
 
-  return { destino, ida, vuelta, pasajeros: n, noches: dias > 0 ? dias : NOCHES_POR_DEFECTO }
+  return { destino: lugar.codigo, lugar, ida, vuelta, pasajeros: n, noches: dias > 0 ? dias : NOCHES_POR_DEFECTO }
 }
 
 crearServicio({
   nombre: 'hospedaje',
   puerto: CONFIG.hospedaje.puerto,
+  listo: () => {
+    if (!salud.listo) throw new Error('no listo (simulado)')
+    if (!base.prepare('SELECT 1 FROM alojamientos LIMIT 1').get()) throw new Error('la base no tiene alojamientos')
+    return { proveedor: proveedor.nombre }
+  },
   rutas: {
     ...salud.rutas,
 

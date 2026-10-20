@@ -40,7 +40,7 @@ async function sincronizar() {
   }))
 
   try {
-    const { ok } = await pedirJson(`${CONFIG.urlAgregador}/api/agencias/${agenciaId}/registro`, {
+    const { ok } = await pedirJson(`${CONFIG.urlAgregador}/api/v1/agencias/${agenciaId}/registro`, {
       metodo: 'POST',
       cuerpo: { entradas },
       timeoutMs: 3000,
@@ -64,6 +64,10 @@ setInterval(sincronizar, INTERVALO_SYNC_MS)
 crearServicio({
   nombre: 'nodo-agencia',
   puerto: CONFIG.nodoAgencia.puerto,
+  listo: () => {
+    base.prepare('SELECT 1 FROM registro LIMIT 1').get()
+    return { agencia_id: agenciaId }
+  },
   rutas: {
     'GET /salud': () => ({
       servicio: 'nodo-agencia',

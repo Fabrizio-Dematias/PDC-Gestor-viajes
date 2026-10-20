@@ -26,7 +26,8 @@ import { useAgencia } from '../api/tenant.js'
  *    repetir las mismas cuatro tarjetas en las tres pestañas no suma.
  *
  * Los números son reales (conteos de las bases propias, no
- * estadísticas de marketing inventadas) — lo único que no se replica
+ * estadísticas de marketing inventadas) y lo simulado se dice como tal
+ * (los horarios y los precios de los vuelos) — lo único que no se replica
  * de sitios como Booking es lo que depende de reservas o pagos
  * (cancelación, "pagás en el alojamiento", opiniones de otros
  * usuarios): esas funciones no existen en este sistema, así que
@@ -34,13 +35,13 @@ import { useAgencia } from '../api/tenant.js'
  */
 const POR_VERTICAL = {
   vuelos: [
-    { Icono: Plane, titulo: '131.294 vuelos reales', descripcion: 'Itinerarios entre 6071 aeropuertos de todo el mundo, no rutas inventadas.' },
-    { Icono: Route, titulo: 'Directo o con escalas', descripcion: 'Elegís vos: el más rápido o el más barato.' },
-    { Icono: Tag, titulo: 'Todas las aerolíneas juntas', descripcion: 'Iberia, Aerolíneas Argentinas, Air Europa y muchas más, en una sola búsqueda.' },
-    { Icono: ArrowLeftRight, titulo: 'Ida, vuelta o multidestino', descripcion: 'Si tu viaje no es lineal, volvés desde otra ciudad sin problema.' },
+    { Icono: Plane, titulo: '65.647 rutas reales', descripcion: 'Entre más de 3.000 aeropuertos de todo el mundo. Los horarios y precios son simulados.' },
+    { Icono: Route, titulo: 'Directo o con escalas', descripcion: 'Si no hay vuelo directo armamos el recorrido con una o dos escalas, y te mostramos cada espera.' },
+    { Icono: Tag, titulo: 'Ciudades, no sólo aeropuertos', descripcion: 'Elegí Buenos Aires y buscamos en Ezeiza y Aeroparque a la vez, o el que prefieras.' },
+    { Icono: ArrowLeftRight, titulo: 'Ida, vuelta o multidestino', descripcion: 'Elegís un vuelo por tramo. Si tu viaje no es lineal, volvés desde otra ciudad sin problema.' },
   ],
   hospedaje: [
-    { Icono: Building2, titulo: '48.568 alojamientos', descripcion: 'Hoteles, aparts y hostales para comparar en el mismo destino.' },
+    { Icono: Building2, titulo: 'Más de 46.000 alojamientos', descripcion: 'En unas 5.800 ciudades: hoteles, aparts y hostales para comparar en el mismo destino.' },
     { Icono: Users, titulo: 'Ocupación exacta', descripcion: 'Adultos, niños y habitaciones — no un número suelto de pasajeros.' },
     { Icono: CalendarRange, titulo: 'Tus fechas exactas', descripcion: 'Entrada y salida a tu medida, no paquetes de noches fijas.' },
     { Icono: LayoutGrid, titulo: 'Mismo destino, todas las opciones', descripcion: 'Comparás precio y capacidad sin cambiar de pantalla.' },

@@ -10,7 +10,7 @@
 import { buscarVertical, TIMEOUT_MS } from '../src/api/cliente.js'
 import { SALUD, fijarSalud } from '../src/api/mock/caos.js'
 import { esNoDisponible } from '../src/dominio/errores.js'
-import { buscarLugares, CATALOGO_SIMULADO, normalizar } from '../src/dominio/lugares.js'
+import { buscarLugares, CATALOGO_SIMULADO, etiquetaDe, mismaCiudad, normalizar } from '../src/dominio/lugares.js'
 
 const CRIT = { origen: 'EZE', destino: 'MAD', ida: '2026-10-12', vuelta: '2026-10-22', pasajeros: 2 }
 let fallos = 0
@@ -89,31 +89,51 @@ await caso('cancelación del usuario (cambia de búsqueda)', async () => {
   }
 })
 
-const primero = (q, permitidos) =>
-  buscarLugares(CATALOGO_SIMULADO, q, permitidos).coincidencias[0]
+const primero = (q, opciones) => buscarLugares(CATALOGO_SIMULADO, q, opciones).coincidencias[0]
+const codigos = (q, opciones) => buscarLugares(CATALOGO_SIMULADO, q, opciones).coincidencias.map((o) => o.codigo)
 
 await caso('buscador de lugares: por ciudad, país y código', async () => {
   ok(normalizar('Córdoba') === 'cordoba', 'normaliza acentos y mayúsculas')
-  ok(primero('cordoba')?.iata === 'COR', 'escribir sin acento encuentra Córdoba')
-  ok(primero('Córdoba')?.iata === 'COR', 'escribirlo con acento también')
-  ok(primero('eze')?.iata === 'EZE', 'el código completo va primero')
-  ok(primero('ez')?.iata === 'EZE', 'un prefijo del código alcanza')
-  ok(primero('espa')?.pais === 'España', 'buscar por país trae sus aeropuertos')
-  ok(primero('mendo')?.iata === 'MDZ', 'alcanza con las primeras letras')
+  ok(primero('cordoba')?.codigo === 'COR', 'escribir sin acento encuentra Córdoba')
+  ok(primero('Córdoba')?.codigo === 'COR', 'escribirlo con acento también')
+  ok(primero('eze', { soloVuelos: true })?.codigo === 'EZE', 'el código de un aeropuerto va primero que su ciudad')
+  ok(codigos('ez', { soloVuelos: true }).includes('EZE'), 'un prefijo del código alcanza para llegar a Ezeiza')
+  ok(primero('espa')?.ciudad.pais === 'España', 'buscar por país trae sus ciudades')
+  ok(primero('mendo')?.codigo === 'MDZ', 'alcanza con las primeras letras')
   ok(primero('zzzz') === undefined, 'lo que no existe no devuelve nada')
 })
 
-await caso('buscador de lugares: sólo lo que se puede volar', async () => {
-  const permitidos = CATALOGO_SIMULADO.rutas.EZE
-  const { coincidencias, descartadas } = buscarLugares(CATALOGO_SIMULADO, 'buenos', permitidos)
-  ok(coincidencias.length === 0, 'no sugiere el propio origen como destino')
-  ok(descartadas > 0, `avisa que hay ${descartadas} coincidencias fuera del alcance`)
-
-  const todos = buscarLugares(CATALOGO_SIMULADO, '', permitidos).coincidencias
+await caso('buscador de lugares: una ciudad con varios aeropuertos', async () => {
+  // El bug original: "Buenos Aires" aparecía dos veces con el mismo
+  // nombre, y quien elegía Aeroparque no podía llegar a Madrid.
+  const { coincidencias } = buscarLugares(CATALOGO_SIMULADO, 'buenos', { soloVuelos: true })
+  ok(coincidencias[0].codigo === 'BUE' && coincidencias[0].tipo === 'ciudad', 'primero la ciudad entera (BUE)')
   ok(
-    todos.every((a) => permitidos.includes(a.iata)),
-    'con el campo vacío lista sólo destinos alcanzables',
+    coincidencias.map((o) => o.codigo).join() === 'BUE,EZE,AEP',
+    `y debajo cada aeropuerto, identificable (${coincidencias.map((o) => o.codigo).join()})`,
   )
+  ok(
+    coincidencias.every((o) => o.tipo === 'ciudad' || o.aeropuerto.nombre),
+    'cada aeropuerto trae su nombre (Ezeiza, Aeroparque), no dos "Buenos Aires" iguales',
+  )
+
+  const sinAeropuertos = buscarLugares(CATALOGO_SIMULADO, 'buenos').coincidencias
+  ok(sinAeropuertos.length === 1 && sinAeropuertos[0].codigo === 'BUE', 'hospedaje y traslado eligen la ciudad, sin aeropuertos')
+
+  ok(etiquetaDe(CATALOGO_SIMULADO, 'BUE') === 'Buenos Aires', 'la ciudad se muestra sin país si es de acá')
+  ok(etiquetaDe(CATALOGO_SIMULADO, 'AEP') === 'Buenos Aires (Aeroparque)', 'el aeropuerto aclara cuál es')
+  ok(etiquetaDe(CATALOGO_SIMULADO, 'MAD') === 'Madrid, España', 'una ciudad de afuera lleva su país')
+})
+
+await caso('buscador de lugares: cualquier destino se puede elegir', async () => {
+  // Antes el destino se limitaba a los que tenían vuelo directo desde el
+  // origen: Madrid ni aparecía desde Aeroparque. Ahora se puede elegir
+  // todo, y qué hay entre dos lugares lo dice la búsqueda.
+  ok(codigos('madrid', { soloVuelos: true }).includes('MAD'), 'Madrid se ofrece sin importar el origen')
+  ok(codigos('', { soloVuelos: true }).length >= CATALOGO_SIMULADO.ciudades.length, 'con el campo vacío lista las ciudades')
+  ok(mismaCiudad(CATALOGO_SIMULADO, 'BUE', 'EZE'), 'Buenos Aires y Ezeiza son la misma ciudad (no es un viaje)')
+  ok(mismaCiudad(CATALOGO_SIMULADO, 'EZE', 'AEP'), 'Ezeiza y Aeroparque tampoco son un viaje')
+  ok(!mismaCiudad(CATALOGO_SIMULADO, 'BUE', 'MAD'), 'Buenos Aires y Madrid sí')
 })
 
 console.log(fallos === 0 ? '\n✔ todo en verde' : `\n✘ ${fallos} fallas`)

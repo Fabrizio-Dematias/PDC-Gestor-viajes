@@ -1,3 +1,5 @@
+import { idDePedido } from './traza.js'
+
 /**
  * Cliente HTTP entre servicios. Es el único lugar del backend donde se
  * hace una llamada saliente, y por eso es el único que necesita saber de
@@ -14,11 +16,16 @@ export class LlamadaFallida extends Error {
 }
 
 /**
- * GET/PUT con corte por `AbortController`.
+ * GET/POST/PUT/DELETE con corte por `AbortController`.
  *
  * El timeout no es opcional: un servicio *colgado* —que acepta la
  * conexión y nunca responde— dejaría la promesa viva para siempre y con
  * ella la búsqueda del usuario. `fetch` sin señal no vuelve nunca.
+ *
+ * Si la llamada se hace dentro de una request que ya tiene identificador
+ * (`servidor/comun/traza.js`), se lo manda al servicio de destino en
+ * `x-request-id`: así los logs de todos los servicios que tocó una misma
+ * búsqueda comparten la misma marca.
  */
 export async function pedirJson(url, { timeoutMs, metodo = 'GET', cuerpo, headers } = {}) {
   const control = new AbortController()
@@ -26,18 +33,20 @@ export async function pedirJson(url, { timeoutMs, metodo = 'GET', cuerpo, header
     ? setTimeout(() => control.abort(new DOMException('timeout', 'TimeoutError')), timeoutMs)
     : null
 
+  const id = idDePedido()
   try {
     const res = await fetch(url, {
       method: metodo,
       signal: control.signal,
       headers: {
         ...(cuerpo ? { 'content-type': 'application/json' } : {}),
+        ...(id ? { 'x-request-id': id } : {}),
         ...headers,
       },
       body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     })
     const datos = await res.json().catch(() => null)
-    return { ok: res.ok, estado: res.status, datos }
+    return { ok: res.ok, estado: res.status, datos, cabeceras: res.headers }
   } catch (error) {
     if (error?.name === 'TimeoutError') throw new LlamadaFallida('timeout', error)
     throw new LlamadaFallida('error', error)

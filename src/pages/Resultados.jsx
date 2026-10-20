@@ -5,7 +5,9 @@ import { resumenOcupacion } from '../components/OcupacionSelector.jsx'
 import AvisoInvitado from '../components/resultados/AvisoInvitado.jsx'
 import SeccionOculta from '../components/resultados/SeccionOculta.jsx'
 import SeccionResultados from '../components/resultados/SeccionResultados.jsx'
+import ViajeConTramos from '../components/resultados/ViajeConTramos.jsx'
 import { MOTIVO } from '../dominio/estados.js'
+import { fechaCorta } from '../dominio/formato.js'
 import { etiquetaDe } from '../dominio/lugares.js'
 import { decodificarTramos } from '../dominio/tramos.js'
 import { useLugares } from '../api/lugares.js'
@@ -42,6 +44,15 @@ export default function Resultados() {
       ? verticalPorId(criterios.vertical)
       : null
 
+  // Vuelos de ida y vuelta: son dos búsquedas (origen→destino el día de
+  // la ida, destino→origen el día de la vuelta) y hay que elegir un
+  // vuelo de cada una. Se resuelve igual que el multidestino: una lista
+  // de tramos (`ViajeConTramos`).
+  const vuelosIdaVuelta =
+    !verticalMultidestino && criterios.vuelta && criterios.vertical === 'vuelos' && criterios.origen
+      ? verticalPorId('vuelos')
+      : null
+
   // Sin destino no hay nada que buscar: las queries quedarían
   // deshabilitadas y la pantalla mostraría esqueletos para siempre.
   const sinDestino = verticalMultidestino ? tramos.some((t) => !t.destino) : !criterios.destino
@@ -60,7 +71,7 @@ export default function Resultados() {
   // verticales con tratamiento especial (multidestino, ida y vuelta
   // con otro lugar) se resuelven aparte (más abajo) y no entran acá.
   const decididos = VERTICALES.filter(
-    (v) => v.id !== verticalMultidestino?.id && v.id !== verticalIdaVuelta?.id,
+    (v) => v.id !== verticalMultidestino?.id && v.id !== verticalIdaVuelta?.id && v.id !== vuelosIdaVuelta?.id,
   ).map((vertical) => {
     if (vertical.camposBusqueda.some((campo) => !criterios[campo])) {
       return { vertical, visible: false, motivo: MOTIVO.CAMPOS_INSUFICIENTES }
@@ -89,12 +100,42 @@ export default function Resultados() {
           : null
   const multidestinoOculto = motivoOculto(verticalMultidestino)
   const idaVueltaOculto = motivoOculto(verticalIdaVuelta)
+  const vuelosIdaVueltaOculto = motivoOculto(vuelosIdaVuelta)
 
   const visibles = decididos.filter((d) => d.visible)
   const hayResultados =
     visibles.length > 0 ||
     (verticalMultidestino && !multidestinoOculto) ||
-    (verticalIdaVuelta && !idaVueltaOculto)
+    (verticalIdaVuelta && !idaVueltaOculto) ||
+    (vuelosIdaVuelta && !vuelosIdaVueltaOculto)
+
+  // Los tramos de un viaje con elección (ida y vuelta, multidestino).
+  const tramosMulti = verticalMultidestino
+    ? tramos.map((t, i) => ({
+        id: `${verticalMultidestino.id}-${i}`,
+        corto: `${verticalMultidestino.etiquetaTramo} ${i + 1}`,
+        titulo: `${verticalMultidestino.etiquetaTramo} ${i + 1} · ${
+          t.origen ? `${etiquetaDe(catalogo, t.origen)} → ` : ''
+        }${etiquetaDe(catalogo, t.destino)} · ${fechaCorta(`${t.fecha}T00:00:00Z`)}`,
+        criterios: { origen: t.origen, destino: t.destino, ida: t.fecha, pasajeros: criterios.pasajeros },
+      }))
+    : []
+  const tramosIdaVuelta = vuelosIdaVuelta
+    ? [
+        {
+          id: 'vuelos-ida',
+          corto: 'Ida',
+          titulo: `Vuelo de ida · ${etiquetaDe(catalogo, criterios.origen)} → ${etiquetaDe(catalogo, criterios.destino)} · ${fechaCorta(`${criterios.ida}T00:00:00Z`)}`,
+          criterios: { origen: criterios.origen, destino: criterios.destino, ida: criterios.ida, pasajeros: criterios.pasajeros },
+        },
+        {
+          id: 'vuelos-vuelta',
+          corto: 'Vuelta',
+          titulo: `Vuelo de vuelta · ${etiquetaDe(catalogo, criterios.destino)} → ${etiquetaDe(catalogo, criterios.origen)} · ${fechaCorta(`${criterios.vuelta}T00:00:00Z`)}`,
+          criterios: { origen: criterios.destino, destino: criterios.origen, ida: criterios.vuelta, pasajeros: criterios.pasajeros },
+        },
+      ]
+    : []
 
   if (sinDestino) return <Navigate to="/" replace />
 
@@ -117,8 +158,8 @@ export default function Resultados() {
             `${tramos.length} tramos`
           ) : (
             <>
-              {criterios.ida}
-              {criterios.vuelta ? ` → ${criterios.vuelta}` : ''}
+              {fechaCorta(`${criterios.ida}T00:00:00Z`)}
+              {criterios.vuelta ? ` → ${fechaCorta(`${criterios.vuelta}T00:00:00Z`)}` : ''}
             </>
           )}{' '}
           ·{' '}
@@ -141,28 +182,26 @@ export default function Resultados() {
         (multidestinoOculto ? (
           <SeccionOculta vertical={verticalMultidestino} motivo={multidestinoOculto} />
         ) : (
-          tramos.map((t, i) => (
-            <SeccionResultados
-              key={i}
-              vertical={{
-                ...verticalMultidestino,
-                // Un id por tramo: cada uno es una búsqueda propia (su
-                // propio estado de carga/error, su propia entrada de
-                // caché en React Query), no una repetición del mismo
-                // vertical con otro texto.
-                id: `${verticalMultidestino.id}-${i}`,
-                titulo: `${verticalMultidestino.etiquetaTramo} ${i + 1} · ${
-                  t.origen ? `${etiquetaDe(catalogo, t.origen)} → ` : ''
-                }${etiquetaDe(catalogo, t.destino)}`,
-              }}
-              criterios={{
-                origen: t.origen,
-                destino: t.destino,
-                ida: t.fecha,
-                pasajeros: criterios.pasajeros,
-              }}
-            />
-          ))
+          // Una clave por búsqueda: al buscar otra cosa se descartan las
+          // elecciones del viaje anterior.
+          <ViajeConTramos
+            key={params.toString()}
+            vertical={verticalMultidestino}
+            tramos={tramosMulti}
+            criterios={criterios}
+          />
+        ))}
+
+      {vuelosIdaVuelta &&
+        (vuelosIdaVueltaOculto ? (
+          <SeccionOculta vertical={vuelosIdaVuelta} motivo={vuelosIdaVueltaOculto} />
+        ) : (
+          <ViajeConTramos
+            key={params.toString()}
+            vertical={vuelosIdaVuelta}
+            tramos={tramosIdaVuelta}
+            criterios={criterios}
+          />
         ))}
 
       {verticalIdaVuelta &&

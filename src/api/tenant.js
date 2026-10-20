@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSesion } from '../estado/sesion.js'
-import { AGENCIA_ID, cabecerasAuth, HAY_BACKEND, URL_API } from './cliente.js'
+import { AGENCIA_ID, cabecerasAuth, fijarPresupuestos, HAY_BACKEND, URL_API, V1 } from './cliente.js'
 
 /**
  * Branding + verticales habilitados de la agencia (contrato §8).
@@ -29,11 +29,13 @@ const AGENCIA_POR_DEFECTO = AGENCIAS_SIMULADAS['ag-demo']
 
 async function obtenerAgencia(agenciaId) {
   if (!HAY_BACKEND) return AGENCIAS_SIMULADAS[agenciaId] ?? AGENCIA_POR_DEFECTO
-  const res = await fetch(`${URL_API}/api/tenant/config`, {
+  const res = await fetch(`${URL_API}${V1}/tenant/config`, {
     headers: { 'x-agencia-id': agenciaId, ...cabecerasAuth() },
   })
   if (!res.ok) throw new Error(`tenant/config → ${res.status}`)
-  return res.json()
+  const agencia = await res.json()
+  fijarPresupuestos(agencia.presupuestos_ms)
+  return agencia
 }
 
 /**

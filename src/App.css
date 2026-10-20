@@ -273,12 +273,17 @@
     border-inline-end: 1px solid var(--borde);
   }
 
+  /* Sin `padding: 0` a secas: el campo de lugar reserva a la derecha el
+     sitio de la insignia del código (`.combo input`), y pisarlo hacía
+     que un nombre largo ("Buenos Aires · Aeroparque") corriera por
+     debajo de la insignia. */
   .buscador:not(.buscador--tramos) input[type="text"],
   .buscador:not(.buscador--tramos) input[type="date"],
   .buscador:not(.buscador--tramos) input[type="time"],
   .buscador:not(.buscador--tramos) input[type="number"],
   .buscador:not(.buscador--tramos) .ocupacion__disparador {
-    padding: 0;
+    padding-block: 0;
+    padding-inline-start: 0;
     border: 0;
     background: none;
   }
@@ -293,6 +298,15 @@
     align-self: center;
     margin-inline-start: 0.75rem;
     padding-inline: 1.75rem;
+  }
+}
+
+/* En un celular el botón principal ocupa todo el ancho: es el gesto más
+   frecuente del sitio y de otro modo queda chico al lado de "Pasajeros". */
+@media (max-width: 39.99rem) {
+  .buscador button[type="submit"] {
+    flex: 1 1 100%;
+    padding-block: 0.6rem;
   }
 }
 
@@ -323,7 +337,8 @@
 }
 
 .combo input {
-  padding-inline-end: 3.1rem;
+  padding-inline-end: 3.4rem;
+  text-overflow: ellipsis;
 }
 
 .combo__iata {
@@ -397,6 +412,40 @@
   letter-spacing: 0.04em;
 }
 
+/* Aeropuertos de una ciudad con varios: van debajo de ella, un paso a
+   la derecha, para que se lean como parte de la misma ciudad. */
+.combo__opcion--aeropuerto {
+  margin-inline-start: 1rem;
+  padding-block: 0.3rem;
+  border-inline-start: 2px solid var(--borde);
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.combo__opcion--aeropuerto .combo__ciudad {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.combo__avion {
+  inline-size: 0.8rem;
+  block-size: 0.8rem;
+  color: var(--texto-3);
+  transform: rotate(45deg);
+}
+
+.combo__titulo {
+  padding: 0.4rem 0.55rem 0.2rem;
+  color: var(--texto-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .combo__vacio,
 .combo__pie {
   padding: 0.5rem 0.55rem;
@@ -407,6 +456,14 @@
 .combo__pie {
   margin-block-start: 0.15rem;
   border-block-start: 1px solid var(--borde);
+}
+
+/* Aviso bajo el buscador (origen y destino iguales, etc.) */
+.buscador__aviso {
+  margin-block-start: 0.5rem;
+  padding-inline: 1rem;
+  color: var(--falla);
+  font-size: 0.8125rem;
 }
 
 /* ---- Panel de fallos (demo) --------------------------------------- */

@@ -13,6 +13,14 @@ export const MOTIVO = {
   TIMEOUT: 'timeout',
   ERROR: 'error',
   CIRCUITO_ABIERTO: 'circuito_abierto',
+  /** El registro de servicios sabe de este servicio pero ninguna de sus
+   *  instancias está lista (no pasan su health check). */
+  SIN_INSTANCIAS: 'sin_instancias',
+  /** El servicio respondió, pero dijo que la búsqueda no tiene sentido
+   *  (400): no es que no esté disponible, es que hay que cambiarla. */
+  MISMO_LUGAR: 'mismo_lugar',
+  LUGAR_DESCONOCIDO: 'lugar_desconocido',
+  SOLICITUD_INVALIDA: 'solicitud_invalida',
   APAGADO_POR_ADMIN: 'apagado_por_admin',
   DESACTIVADO_POR_USUARIO: 'desactivado_por_usuario',
   /**
@@ -39,6 +47,10 @@ const TEXTOS = {
   [MOTIVO.ERROR]: 'El servicio devolvió un error.',
   [MOTIVO.CIRCUITO_ABIERTO]:
     'El servicio viene fallando: dejamos de consultarlo por unos minutos.',
+  [MOTIVO.SIN_INSTANCIAS]: 'Ninguna instancia de este servicio está lista para atender.',
+  [MOTIVO.MISMO_LUGAR]: 'El origen y el destino son la misma ciudad: elegí lugares distintos.',
+  [MOTIVO.LUGAR_DESCONOCIDO]: 'No reconocemos el origen o el destino de esta búsqueda.',
+  [MOTIVO.SOLICITUD_INVALIDA]: 'Revisá los datos de la búsqueda: alguno no es válido.',
   [MOTIVO.APAGADO_POR_ADMIN]:
     'Un administrador desactivó esta sección temporalmente.',
   [MOTIVO.DESACTIVADO_POR_USUARIO]:

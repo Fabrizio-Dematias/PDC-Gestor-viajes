@@ -6,15 +6,17 @@ export function crearProveedorFicticio(base) {
   return {
     nombre: 'ficticio',
 
-    async buscar({ destino, pasajeros }) {
-      const ciudad = consultaCiudad.get(destino)
+    async buscar({ lugar, pasajeros }) {
+      // Las tarifas se cargaron por aeropuerto; la ciudad usa las de su
+      // aeropuerto principal.
+      const ciudad = consultaCiudad.get(lugar.principal)
       if (!ciudad) return [] // destino sin traslados cargados
 
       return consultaOpciones
         .all()
         .filter((o) => o.capacidad >= pasajeros)
         .map((o) => ({
-          id: `${o.id}-${destino.toLowerCase()}`,
+          id: `${o.id}-${lugar.codigo.toLowerCase()}`,
           proveedor: o.proveedor,
           vehiculo: o.vehiculo,
           capacidad: o.capacidad,

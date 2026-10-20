@@ -26,8 +26,17 @@ services:
     command: ['servidor/vuelos/index.js']
     environment:
       PUERTO_VUELOS: 4001
+      URL_REGISTRO: http://registro:4006
+      URL_PROPIA: http://vuelos:4001
+      PROVEEDOR: ${PROVEEDOR:-ficticio}
+      DUFFEL_ACCESS_TOKEN: ${DUFFEL_ACCESS_TOKEN:-}
     ports:
       - '4001:4001'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4001/salud/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
       - vuelos_datos:/app/servidor/vuelos/datos
     networks: [gestor-viajes]
@@ -37,8 +46,15 @@ services:
     command: ['servidor/hospedaje/index.js']
     environment:
       PUERTO_HOSPEDAJE: 4002
+      URL_REGISTRO: http://registro:4006
+      URL_PROPIA: http://hospedaje:4002
     ports:
       - '4002:4002'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4002/salud/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
       - hospedaje_datos:/app/servidor/hospedaje/datos
     networks: [gestor-viajes]
@@ -48,8 +64,15 @@ services:
     command: ['servidor/traslado/index.js']
     environment:
       PUERTO_TRASLADO: 4004
+      URL_REGISTRO: http://registro:4006
+      URL_PROPIA: http://traslado:4004
     ports:
       - '4004:4004'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4004/salud/ready || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
       - traslado_datos:/app/servidor/traslado/datos
     networks: [gestor-viajes]

@@ -11,6 +11,8 @@
     "back:vuelos": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/vuelos/index.js",
     "back:hospedaje": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/hospedaje/index.js",
     "back:traslado": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/traslado/index.js",
+    "back:notificaciones": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/notificaciones/index.js",
+    "back:registro": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/registro/index.js",
     "back:usuarios": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/usuarios/index.js",
     "back:agregador": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/agregador/index.js",
     "back:nodo-agencia": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/nodo-agencia/index.js",
@@ -21,7 +23,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "node pruebas/humo-fallos.mjs",
-    "test:back": "node pruebas/humo-backend.mjs"
+    "test:back": "node pruebas/humo-backend.mjs",
+    "docs:openapi": "node servidor/agregador/generar-openapi.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

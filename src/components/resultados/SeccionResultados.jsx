@@ -15,7 +15,7 @@ import Skeleton from './Skeleton.jsx'
  * si el servicio se cae, se rompe esta caja y ninguna otra. Es la
  * traducción a componentes del requisito de fallos parciales.
  */
-export default function SeccionResultados({ vertical, criterios }) {
+export default function SeccionResultados({ vertical, criterios, listaProps }) {
   const { id, titulo, icono, fetcher, Lista } = vertical
   const { data, estado, motivo, hayCacheVieja, actualizadoEn, refetch, isFetching } =
     useBusquedaVertical(id, fetcher, criterios)
@@ -51,7 +51,7 @@ export default function SeccionResultados({ vertical, criterios }) {
               </AlertDescription>
             </Alert>
           )}
-          <Lista items={data} criterios={criterios} />
+          <Lista items={data} criterios={criterios} {...listaProps} />
         </>
       )}
 
@@ -70,7 +70,7 @@ export default function SeccionResultados({ vertical, criterios }) {
               </Button>
             </AlertAction>
           </Alert>
-          <Lista items={data} criterios={criterios} />
+          <Lista items={data} criterios={criterios} {...listaProps} />
         </>
       )}
 

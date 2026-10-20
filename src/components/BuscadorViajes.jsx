@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button.jsx'
 import { Checkbox } from '@/components/ui/checkbox.jsx'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx'
 import { useLugares } from '../api/lugares.js'
-import { CRITERIOS_INICIALES } from '../dominio/criterios.js'
+import { CRITERIOS_INICIALES, hoy, sumarDias } from '../dominio/criterios.js'
+import { mismaCiudad } from '../dominio/lugares.js'
 import { codificarTramos, decodificarTramos, tramoVacio, tramosCompletos } from '../dominio/tramos.js'
 import { VERTICALES, verticalPorId } from '../dominio/verticales.jsx'
 import BuscadorLugar from './BuscadorLugar.jsx'
@@ -78,13 +79,27 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
   const mostrarVuelta = vertical.usaVuelta && tipoViaje !== 'solo_ida' && !enMultidestino
   const mostrarOtroLugar = vertical.permiteVueltaOtroLugar && mostrarVuelta
 
-  // Sin origen (hospedaje, traslado) cualquier aeropuerto del catálogo
-  // es un destino válido — sólo vuelos limita el destino a los que
-  // tienen ruta real desde el origen elegido.
-  const destinosPermitidos = mostrarOrigen ? (catalogo.rutas[form.origen] ?? []) : undefined
-  const faltaDestino = enMultidestino
-    ? !tramosCompletos(tramos, vertical.tramoConOrigen)
-    : !form.destino || (mostrarOtroLugar && otroLugarVuelta && !form.destino_vuelta)
+  // Cualquier ciudad del catálogo es un origen y un destino válidos: lo
+  // que haya o no entre ellas —directo, con escalas o nada— lo dice la
+  // búsqueda, no el formulario. Antes el destino se limitaba a los que
+  // tenían vuelo directo desde el origen, y eso escondía casi todos los
+  // viajes posibles (cualquiera con escala) además de dejar sin Madrid a
+  // quien elegía Aeroparque.
+  const soloVuelos = vertical.id === 'vuelos'
+
+  // Un viaje de una ciudad a sí misma no es un viaje.
+  const mismoLugar = enMultidestino
+    ? tramos.some((t) => vertical.tramoConOrigen && mismaCiudad(catalogo, t.origen, t.destino))
+    : mostrarOrigen && mismaCiudad(catalogo, form.origen, form.destino)
+
+  const faltaDestino =
+    mismoLugar ||
+    (enMultidestino
+      ? !tramosCompletos(tramos, vertical.tramoConOrigen)
+      : !form.destino || (mostrarOtroLugar && otroLugarVuelta && !form.destino_vuelta))
+
+  // Hospedaje cuenta noches: salir el mismo día que se entra son cero.
+  const minVuelta = sumarDias(form.ida, vertical.id === 'hospedaje' ? 1 : 0)
 
   const cambiar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
 
@@ -108,17 +123,16 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
     }
   }
 
-  /**
-   * Al cambiar el origen, un destino que ya no se vuela desde ahí se
-   * borra en vez de reemplazarse por otro: elegir un destino por el
-   * usuario, sin avisarle, es peor que dejarle el campo vacío.
-   */
-  const cambiarOrigen = (iata) =>
-    setForm((f) => ({
-      ...f,
-      origen: iata,
-      destino: (catalogo.rutas[iata] ?? []).includes(f.destino) ? f.destino : '',
-    }))
+  /** Si se adelanta la ida más allá de la vuelta, la vuelta se corre
+   *  con ella: dejarla atrás armaba un viaje que termina antes de empezar
+   *  y el servicio lo rechazaba. */
+  const cambiarIda = (e) => {
+    const ida = e.target.value
+    setForm((f) => {
+      const minimo = sumarDias(ida, vertical.id === 'hospedaje' ? 1 : 0)
+      return { ...f, ida, vuelta: f.vuelta && f.vuelta < minimo ? minimo : f.vuelta }
+    })
+  }
 
   function enviar(e) {
     e.preventDefault()
@@ -215,7 +229,8 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
         {enMultidestino ? (
           <div className="tramos">
             {tramos.map((t, i) => {
-              const destinosTramo = vertical.tramoConOrigen ? (catalogo.rutas[t.origen] ?? []) : undefined
+              // Cada tramo sale después del anterior.
+              const minimoTramo = i > 0 && tramos[i - 1].fecha ? tramos[i - 1].fecha : hoy()
               return (
                 <div className="tramo" key={i}>
                   <span className="tramo__numero">{vertical.etiquetaTramo} {i + 1}</span>
@@ -225,11 +240,8 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                         etiqueta="Origen"
                         valor={t.origen}
                         catalogo={catalogo}
-                        permitidos={catalogo.origenes}
-                        onElegir={(iata) => {
-                          cambiarTramo(i, 'origen', iata)
-                          if (!(catalogo.rutas[iata] ?? []).includes(t.destino)) cambiarTramo(i, 'destino', '')
-                        }}
+                        soloVuelos={soloVuelos}
+                        onElegir={(codigo) => cambiarTramo(i, 'origen', codigo)}
                         placeholder="¿Desde dónde salís?"
                       />
                     )}
@@ -237,8 +249,8 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                       etiqueta="Destino"
                       valor={t.destino}
                       catalogo={catalogo}
-                      permitidos={destinosTramo}
-                      onElegir={(iata) => cambiarTramo(i, 'destino', iata)}
+                      soloVuelos={soloVuelos}
+                      onElegir={(codigo) => cambiarTramo(i, 'destino', codigo)}
                       placeholder={vertical.placeholderDestino}
                     />
                     <label className="campo">
@@ -246,6 +258,7 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                       <input
                         type="date"
                         value={t.fecha}
+                        min={minimoTramo}
                         onChange={(e) => cambiarTramo(i, 'fecha', e.target.value)}
                         required
                       />
@@ -293,8 +306,8 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                 etiqueta="Origen"
                 valor={form.origen}
                 catalogo={catalogo}
-                permitidos={catalogo.origenes}
-                onElegir={cambiarOrigen}
+                soloVuelos={soloVuelos}
+                onElegir={(codigo) => setForm((f) => ({ ...f, origen: codigo }))}
                 placeholder="¿Desde dónde salís?"
               />
             )}
@@ -303,14 +316,14 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
               etiqueta="Destino"
               valor={form.destino}
               catalogo={catalogo}
-              permitidos={destinosPermitidos}
-              onElegir={(iata) => setForm((f) => ({ ...f, destino: iata }))}
+              soloVuelos={soloVuelos}
+              onElegir={(codigo) => setForm((f) => ({ ...f, destino: codigo }))}
               placeholder={vertical.placeholderDestino}
             />
 
             <label className="campo">
               <span className="campo__etiqueta">{vertical.etiquetaIda}</span>
-              <input type="date" value={form.ida} onChange={cambiar('ida')} required />
+              <input type="date" value={form.ida} min={hoy()} onChange={cambiarIda} required />
             </label>
 
             {vertical.usaHora && (
@@ -326,7 +339,7 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                 <input
                   type="date"
                   value={form.vuelta}
-                  min={form.ida}
+                  min={minVuelta}
                   onChange={cambiar('vuelta')}
                 />
               </label>
@@ -344,7 +357,7 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
                 etiqueta="Lugar de devolución"
                 valor={form.destino_vuelta}
                 catalogo={catalogo}
-                onElegir={(iata) => setForm((f) => ({ ...f, destino_vuelta: iata }))}
+                onElegir={(codigo) => setForm((f) => ({ ...f, destino_vuelta: codigo }))}
                 placeholder="¿Dónde te dejamos?"
               />
             )}
@@ -373,6 +386,12 @@ export default function BuscadorViajes({ valores = CRITERIOS_INICIALES, onBuscar
           </>
         )}
       </form>
+
+      {mismoLugar && (
+        <p className="buscador__aviso" role="alert">
+          El origen y el destino son la misma ciudad: elegí lugares distintos.
+        </p>
+      )}
     </div>
   )
 }

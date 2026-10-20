@@ -1,4 +1,4 @@
-import { AGENCIA_ID, HAY_BACKEND, URL_API } from './cliente.js'
+import { AGENCIA_ID, HAY_BACKEND, URL_API, V1 } from './cliente.js'
 
 /**
  * Login real (contrato §10). Sólo funciona con backend conectado: el
@@ -10,7 +10,7 @@ async function pedir(ruta, cuerpo) {
   if (!HAY_BACKEND) {
     throw new Error('El login necesita el backend conectado (VITE_API_URL).')
   }
-  const res = await fetch(`${URL_API}${ruta}`, {
+  const res = await fetch(`${URL_API}${V1}${ruta}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-agencia-id': AGENCIA_ID },
     body: JSON.stringify(cuerpo),
@@ -28,15 +28,15 @@ async function pedir(ruta, cuerpo) {
 /** `{ ok, email, codigo_demo? }` — `codigo_demo` sólo con el proveedor
  *  de email ficticio (servidor/comun/email.js). */
 export const registrarse = ({ email, password, nombre }) =>
-  pedir('/api/auth/registro', { email, password, nombre })
+  pedir('/auth/registro', { email, password, nombre })
 
 /** `{ token, usuario }` — loguea directo, sin pedir la contraseña de nuevo. */
 export const verificarEmail = ({ email, codigo }) =>
-  pedir('/api/auth/verificar-email', { email, codigo })
+  pedir('/auth/verificar-email', { email, codigo })
 
-export const reenviarCodigo = ({ email }) => pedir('/api/auth/reenviar-codigo', { email })
+export const reenviarCodigo = ({ email }) => pedir('/auth/reenviar-codigo', { email })
 
 /** `{ token, usuario }`. `identificador` es un email (clientes) o un
  *  `username` (administradores). */
 export const iniciarSesion = ({ identificador, password }) =>
-  pedir('/api/auth/login', { identificador, password })
+  pedir('/auth/login', { identificador, password })

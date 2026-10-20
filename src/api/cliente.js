@@ -14,6 +14,10 @@ import { pedirMock } from './mock/servidor.js'
  */
 
 export const URL_API = import.meta.env?.VITE_API_URL
+/** Versión de la API del agregador que habla este front. Las rutas sin
+ *  versión (`/api/buscar`…) siguen respondiendo pero están deprecadas
+ *  (docs/contrato-agregador.md §12). */
+export const V1 = '/api/v1'
 /** Sin `VITE_API_URL` el front corre solo, contra el servidor simulado. */
 export const HAY_BACKEND = URL_API !== undefined
 const USAR_MOCK = !HAY_BACKEND
@@ -46,8 +50,21 @@ export function cabecerasAuth() {
  */
 export const URL_NODO_AGENCIA = import.meta.env?.VITE_URL_NODO_AGENCIA
 
-/** Presupuesto front → agregador. Ver contrato §3. */
+/** Presupuesto front → agregador por defecto. Ver contrato §3. */
 export const TIMEOUT_MS = 3000
+
+/**
+ * El agregador informa cuánto espera él a cada vertical (en
+ * `/tenant/config`, `presupuestos_ms`): con la base propia son 2,5 s, con
+ * Duffel en vuelos son 5,5 s. El front se corta 0,5 s después — si se
+ * cortara antes, el "no disponible" lo decidiría el más impaciente y no
+ * el mejor informado (contrato §3). Mientras no llega, rige el default.
+ */
+const presupuestos = {}
+export function fijarPresupuestos(recibidos) {
+  if (recibidos && typeof recibidos === 'object') Object.assign(presupuestos, recibidos)
+}
+const limiteDe = (vertical) => (presupuestos[vertical] ?? TIMEOUT_MS - 500) + 500
 
 function aQueryString(criterios) {
   const p = new URLSearchParams()
@@ -60,7 +77,7 @@ function aQueryString(criterios) {
 async function transporte(vertical, criterios, signal) {
   if (USAR_MOCK) return pedirMock(vertical, criterios, { signal })
   const qs = aQueryString(criterios)
-  return fetch(`${URL_API}/api/buscar/${vertical}?${qs}`, {
+  return fetch(`${URL_API}${V1}/buscar/${vertical}?${qs}`, {
     signal,
     headers: { 'x-agencia-id': AGENCIA_ID, ...cabecerasAuth() },
   })
@@ -69,14 +86,14 @@ async function transporte(vertical, criterios, signal) {
 /**
  * Busca un vertical. Resuelve con el array de items, o rechaza con
  * `ServicioNoDisponible`. Nunca deja una promesa colgada: el
- * AbortController garantiza que a los TIMEOUT_MS hay una respuesta,
+ * AbortController garantiza que a los `limiteDe(vertical)` ms hay una respuesta,
  * aunque sea un fallo.
  */
 export async function buscarVertical(vertical, criterios, { signal } = {}) {
   const control = new AbortController()
   const cortar = setTimeout(
     () => control.abort(new DOMException('timeout', 'TimeoutError')),
-    TIMEOUT_MS,
+    limiteDe(vertical),
   )
   // Si React Query cancela la query (el usuario cambió de búsqueda),
   // propagamos ese abort al pedido en curso.

@@ -10,9 +10,37 @@ const PERMISOS_VALIDOS = ['gestion_verticales', 'gestion_usuarios']
 const CODIGO_TTL_MIN = 15
 const proveedorEmail = crearProveedorEmail()
 
-await crearEsquema(pool)
-const { total } = await sembrar(pool)
-console.log(`[usuarios] Postgres listo: ${total} usuarios (agencias ag-demo, ag-sur)`)
+/**
+ * La base se prepara en segundo plano y con reintentos, **no** antes de
+ * arrancar. Si Postgres (Supabase) todavía no contesta, el servicio
+ * arranca igual: está *vivo* (`/salud/live`) pero no *listo*
+ * (`/salud/ready` da 503, y el registro de servicios no le manda
+ * tráfico) hasta que la base responde. Antes un Postgres caído al
+ * arrancar tiraba el proceso entero, y había que volver a lanzarlo a
+ * mano cuando la base volvía — justo el tipo de dependencia que un
+ * servicio listo-o-no-listo se banca solo.
+ */
+let baseLista = false
+const espera = (ms) => new Promise((resolver) => setTimeout(resolver, ms))
+async function prepararBase() {
+  while (!baseLista) {
+    try {
+      await crearEsquema(pool)
+      const { total } = await sembrar(pool)
+      baseLista = true
+      console.log(`[usuarios] Postgres listo: ${total} usuarios (agencias ag-demo, ag-sur)`)
+    } catch (error) {
+      console.warn(`[usuarios] Postgres no está listo (${error.code ?? error.message}): reintento en 3 s`)
+      await espera(3000)
+    }
+  }
+}
+prepararBase()
+
+// Latido: una consulta barata cada 30 s mantiene viva la conexión (ver el
+// comentario de `postgres` en comun/config.js). Si falla no pasa nada: la
+// próxima consulta de verdad reconecta.
+setInterval(() => pool.query('SELECT 1').catch(() => {}), 30_000).unref()
 
 const USUARIO_POR_DEFECTO = 'u-001'
 /** Agencia con la que se resuelve una request que no manda la cabecera
@@ -124,20 +152,61 @@ async function enviarCodigoDeVerificacion(email) {
   return proveedorEmail.nombre === 'ficticio' ? { codigo_demo: codigo } : {}
 }
 
+/**
+ * Los contadores de `/salud` salen de la base, y con Postgres alojado
+ * (Supabase) cada consulta cuesta entre 0,25 y 1,5 s desde acá: el
+ * agregador sondea `/salud` cada vez que alguien abre el panel de
+ * fallos, y con su presupuesto de 1 s el servicio figuraba "no
+ * disponible" estando perfectamente sano. Se guardan 30 s y la
+ * respuesta sale al instante; si la base no contesta, el servicio sigue
+ * *vivo* (`/salud` responde) y simplemente no está *listo*
+ * (`/salud/ready` da 503) — dos preguntas distintas (Módulo 4).
+ */
+let contadores = { usuarios: null, agencias: null, en: 0 }
+async function leerContadores() {
+  if (Date.now() - contadores.en < 30_000) return contadores
+  try {
+    const [usuarios, agencias] = await Promise.all([
+      pool.query('SELECT COUNT(*) AS n FROM usuarios'),
+      pool.query('SELECT COUNT(*) AS n FROM agencias'),
+    ])
+    contadores = { usuarios: Number(usuarios.rows[0].n), agencias: Number(agencias.rows[0].n), en: Date.now() }
+  } catch {
+    // se devuelven los últimos conocidos (o null)
+  }
+  return contadores
+}
+
+/** Mientras la base no esté lista, las rutas que la usan responden 503
+ *  con un motivo claro en vez de fallar con un error de SQL. `/salud` no
+ *  pasa por acá: tiene que contestar siempre. */
+function conBase(rutas) {
+  return Object.fromEntries(
+    Object.entries(rutas).map(([clave, handler]) => [
+      clave,
+      clave === 'GET /salud'
+        ? handler
+        : (ctx) => {
+            if (!baseLista) throw new ErrorHttp(503, { error: 'la base de datos todavía no está lista', motivo: 'base_no_lista' })
+            return handler(ctx)
+          },
+    ]),
+  )
+}
+
 crearServicio({
   nombre: 'usuarios',
   puerto: CONFIG.usuarios.puerto,
-  rutas: {
+  // Listo = la base ya está preparada y contesta. Es la única dependencia
+  // de este servicio.
+  listo: async () => {
+    if (!baseLista) throw new Error('Postgres todavía no está listo')
+    await pool.query('SELECT 1')
+  },
+  rutas: conBase({
     'GET /salud': async () => {
-      const [usuarios, agencias] = await Promise.all([
-        pool.query('SELECT COUNT(*) AS n FROM usuarios'),
-        pool.query('SELECT COUNT(*) AS n FROM agencias'),
-      ])
-      return {
-        servicio: 'usuarios',
-        usuarios: Number(usuarios.rows[0].n),
-        agencias: Number(agencias.rows[0].n),
-      }
+      const { usuarios, agencias } = await leerContadores()
+      return { servicio: 'usuarios', usuarios, agencias }
     },
 
     'GET /api/perfil': ({ headers }) => leerPerfil(quienEs(headers)),
@@ -427,5 +496,5 @@ crearServicio({
       }
       return { insertadas: entradas.length }
     },
-  },
+  }),
 })

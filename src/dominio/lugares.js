@@ -1,110 +1,217 @@
 /**
- * Catálogo de lugares para el modo sin backend.
+ * Catálogo de lugares: **ciudades**, cada una con sus aeropuertos.
  *
- * Cuando hay backend, el catálogo real —70 aeropuertos y las 255 rutas
- * que existen de verdad— lo sirve el servicio de vuelos. Esta lista
- * corta es sólo para que el front se pueda usar solo, y coincide con lo
- * que sabe generar el servidor simulado.
+ * Quien viaja piensa en ciudades; los aeropuertos son un detalle que se
+ * decide después. Antes el buscador trabajaba con aeropuertos sueltos, y
+ * Buenos Aires aparecía dos veces con el mismo nombre (Ezeiza y
+ * Aeroparque): quien elegía el primero —Aeroparque— no encontraba Madrid
+ * porque de ahí no sale ningún vuelo intercontinental. Ahora se elige
+ * "Buenos Aires" (que busca en los dos) o, si se quiere, uno en
+ * particular.
+ *
+ * Un *lugar* se identifica por un código de tres letras que puede ser el
+ * de una ciudad (`BUE`) o el de un aeropuerto (`EZE`); para casi todas
+ * las ciudades —las de un solo aeropuerto— son el mismo. Es lo que viaja
+ * en `origen` y `destino` (docs/contrato-agregador.md §2).
+ *
+ * Con backend el catálogo lo sirve `GET /api/v1/lugares`. Esta lista
+ * corta sólo existe para que el front se pueda usar solo (modo
+ * simulado) o si el servicio de vuelos no está.
  */
-const AEROPUERTOS = [
-  ['EZE', 'Buenos Aires · Ezeiza', 'Argentina'],
-  ['AEP', 'Buenos Aires · Aeroparque', 'Argentina'],
-  ['COR', 'Córdoba', 'Argentina'],
-  ['MDZ', 'Mendoza', 'Argentina'],
-  ['ROS', 'Rosario', 'Argentina'],
-  ['MAD', 'Madrid', 'España'],
-  ['BCN', 'Barcelona', 'España'],
-  ['FCO', 'Roma', 'Italia'],
-  ['CDG', 'París', 'Francia'],
-  ['LIS', 'Lisboa', 'Portugal'],
-  ['MIA', 'Miami', 'Estados Unidos'],
-  ['JFK', 'Nueva York', 'Estados Unidos'],
-  ['MEX', 'Ciudad de México', 'México'],
-  ['PUJ', 'Punta Cana', 'República Dominicana'],
-  ['SCL', 'Santiago', 'Chile'],
-  ['GRU', 'São Paulo', 'Brasil'],
-  ['LIM', 'Lima', 'Perú'],
+const SIMULADAS = [
+  ['BUE', 'Buenos Aires', 'Argentina', [['EZE', 'Ezeiza'], ['AEP', 'Aeroparque']]],
+  ['COR', 'Córdoba', 'Argentina', [['COR', 'Ingeniero Taravella']]],
+  ['MDZ', 'Mendoza', 'Argentina', [['MDZ', 'El Plumerillo']]],
+  ['ROS', 'Rosario', 'Argentina', [['ROS', 'Islas Malvinas']]],
+  ['BRC', 'Bariloche', 'Argentina', [['BRC', 'Teniente Candelaria']]],
+  ['MAD', 'Madrid', 'España', [['MAD', 'Barajas']]],
+  ['BCN', 'Barcelona', 'España', [['BCN', 'El Prat']]],
+  ['ROM', 'Roma', 'Italia', [['FCO', 'Fiumicino'], ['CIA', 'Ciampino']]],
+  ['PAR', 'París', 'Francia', [['CDG', 'Charles de Gaulle'], ['ORY', 'Orly']]],
+  ['LIS', 'Lisboa', 'Portugal', [['LIS', 'Humberto Delgado']]],
+  ['MIA', 'Miami', 'Estados Unidos', [['MIA', 'Miami Internacional']]],
+  ['NYC', 'Nueva York', 'Estados Unidos', [['JFK', 'John F. Kennedy'], ['EWR', 'Newark Liberty'], ['LGA', 'LaGuardia']]],
+  ['MEX', 'Ciudad de México', 'México', [['MEX', 'Benito Juárez']]],
+  ['PUJ', 'Punta Cana', 'República Dominicana', [['PUJ', 'Punta Cana']]],
+  ['SCL', 'Santiago', 'Chile', [['SCL', 'Arturo Merino Benítez']]],
+  ['SAO', 'São Paulo', 'Brasil', [['GRU', 'Guarulhos'], ['CGH', 'Congonhas']]],
+  ['LIM', 'Lima', 'Perú', [['LIM', 'Jorge Chávez']]],
 ]
 
-const ORIGENES = ['EZE', 'AEP', 'COR', 'MDZ', 'ROS']
-const DESTINOS = AEROPUERTOS.map(([iata]) => iata).filter((i) => !ORIGENES.includes(i))
-
-export const CATALOGO_SIMULADO = {
-  aeropuertos: AEROPUERTOS.map(([iata, ciudad, pais]) => ({ iata, ciudad, pais, nombre: ciudad })),
-  origenes: ORIGENES,
-  // Sin datos reales de rutas, cualquier origen llega a cualquier destino.
-  rutas: Object.fromEntries(ORIGENES.map((o) => [o, DESTINOS])),
+export function crearCatalogo(ciudades) {
+  const porCodigo = new Map()
+  for (const c of ciudades) porCodigo.set(c.codigo, { tipo: 'ciudad', ciudad: c })
+  for (const c of ciudades) {
+    for (const a of c.aeropuertos) {
+      if (!porCodigo.has(a.iata)) porCodigo.set(a.iata, { tipo: 'aeropuerto', ciudad: c, aeropuerto: a })
+    }
+  }
+  return { ciudades, porCodigo }
 }
 
-export function buscarAeropuerto(catalogo, iata) {
-  return catalogo.aeropuertos.find((a) => a.iata === iata)
+export const CATALOGO_SIMULADO = crearCatalogo(
+  SIMULADAS.map(([codigo, nombre, pais, aeropuertos], i) => ({
+    codigo,
+    nombre,
+    pais,
+    trafico: 1000 - i,
+    vuelos: true,
+    aeropuertos: aeropuertos.map(([iata, nombre]) => ({ iata, nombre, vuelos: true })),
+  })),
+)
+
+/** `{ tipo, ciudad, aeropuerto? }` del código, o `undefined`. */
+export function buscarLugar(catalogo, codigo) {
+  return catalogo.porCodigo.get(codigo)
 }
 
 /** Sin acentos y en minúscula: quien escribe "cordoba" busca "Córdoba". */
 export function normalizar(texto) {
   return (texto ?? '')
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .trim()
 }
 
 const empiezaAlguna = (frase, q) =>
-  frase.split(/[\s·,\-/]+/).some((palabra) => palabra.startsWith(q))
+  frase.split(/[\s·,\-/.']+/).some((palabra) => palabra.startsWith(q))
 
 /**
  * Puntaje de una coincidencia: cuanto más bajo, más arriba aparece.
  *
  * El orden importa más que el filtro. Escribir "cor" tiene que traer
- * Córdoba antes que Comodoro Rivadavia, y "esp" tiene que traer los
- * aeropuertos de España aunque ninguna ciudad se llame así.
+ * Córdoba antes que Comodoro Rivadavia, y "esp" tiene que traer las
+ * ciudades de España aunque ninguna se llame así. A igualdad de
+ * puntaje decide el tráfico: "san" no puede empezar por una ciudad con
+ * dos vuelos por semana.
  */
-function puntaje(aeropuerto, q) {
-  const iata = normalizar(aeropuerto.iata)
-  const ciudad = normalizar(aeropuerto.ciudad)
-  const pais = normalizar(aeropuerto.pais)
-  const nombre = normalizar(aeropuerto.nombre)
+/** Los textos de cada ciudad, ya normalizados. Con ~5800 ciudades,
+ *  normalizar (descomponer y quitar acentos) en cada tecla eran ~25 000
+ *  llamadas por pulsación; se hace una vez por ciudad y se recuerda. */
+const normalizadas = new WeakMap()
+function textosDe(ciudad) {
+  let t = normalizadas.get(ciudad)
+  if (!t) {
+    t = {
+      nombre: normalizar(ciudad.nombre),
+      pais: normalizar(ciudad.pais),
+      codigo: normalizar(ciudad.codigo),
+      iatas: ciudad.aeropuertos.map((a) => normalizar(a.iata)),
+      nombresAeropuerto: ciudad.aeropuertos.map((a) => normalizar(a.nombre)),
+    }
+    normalizadas.set(ciudad, t)
+  }
+  return t
+}
 
-  if (iata === q) return 0
-  // Prefijo del código: quien escribe "ez" busca Ezeiza, no un
-  // aeropuerto cuyo nombre contiene esas dos letras en el medio.
-  if (iata.startsWith(q)) return 0.5
-  if (ciudad.startsWith(q)) return 1
+function puntaje(ciudad, q) {
+  const { nombre, pais, codigo, iatas, nombresAeropuerto } = textosDe(ciudad)
+
+  if (codigo === q || iatas.includes(q)) return 0
+  // Prefijo del código: quien escribe "ez" busca Ezeiza, no una ciudad
+  // cuyo nombre contiene esas dos letras en el medio.
+  if (codigo.startsWith(q) || iatas.some((i) => i.startsWith(q))) return 0.5
+  if (nombre.startsWith(q)) return 1
   if (pais.startsWith(q)) return 2
-  if (empiezaAlguna(ciudad, q)) return 3
-  if (empiezaAlguna(nombre, q)) return 4
-  if (ciudad.includes(q)) return 5
+  if (empiezaAlguna(nombre, q)) return 3
+  if (nombresAeropuerto.some((n) => empiezaAlguna(n, q))) return 4
+  if (nombre.includes(q)) return 5
   if (pais.includes(q)) return 6
-  if (nombre.includes(q)) return 7
+  if (nombresAeropuerto.some((n) => n.includes(q))) return 7
   return null
 }
 
 /**
- * Busca aeropuertos por ciudad, país, nombre o código.
+ * Busca lugares por ciudad, país, aeropuerto o código.
  *
- * `permitidos` acota el universo: para el destino son los que tienen
- * vuelo directo desde el origen elegido. Los que coinciden con lo
- * escrito pero quedan fuera se devuelven aparte, para poder decirle al
- * usuario por qué no los ve en vez de esconderlos sin explicación.
+ * Devuelve **opciones** listas para mostrar, agrupadas por ciudad: la
+ * ciudad primero ("Buenos Aires — todos los aeropuertos") y, si tiene
+ * varios aeropuertos útiles, cada uno debajo. Si lo escrito es el
+ * código exacto de un aeropuerto ("eze"), ese aeropuerto va antes que su
+ * ciudad: quien tipea un código sabe lo que quiere.
+ *
+ * `soloVuelos` deja afuera las ciudades y aeropuertos sin vuelos (la
+ * pestaña de vuelos no tiene que ofrecer Torrejón); los que coinciden
+ * con lo escrito pero quedan afuera se cuentan en `descartadas`, para
+ * poder decirle al usuario por qué no los ve en vez de esconderlos sin
+ * explicación. Hospedaje y traslado no filtran y no muestran
+ * aeropuertos: se aloja uno en la ciudad.
  */
-export function buscarLugares(catalogo, consulta, permitidos) {
+export function buscarLugares(catalogo, consulta, { soloVuelos = false } = {}) {
   const q = normalizar(consulta)
-  const habilitado = permitidos ? new Set(permitidos) : null
-  const dentro = []
-  const fuera = []
+  const grupos = []
+  let descartadas = 0
 
-  for (const a of catalogo.aeropuertos) {
-    const p = q ? puntaje(a, q) : 8
+  for (const ciudad of catalogo.ciudades) {
+    const utiles = soloVuelos ? ciudad.aeropuertos.filter((a) => a.vuelos) : ciudad.aeropuertos
+    const p = q ? puntaje(ciudad, q) : 8
     if (p === null) continue
-    ;(habilitado && !habilitado.has(a.iata) ? fuera : dentro).push({ ...a, _p: p })
+    if (soloVuelos && utiles.length === 0) {
+      descartadas++
+      continue
+    }
+    grupos.push({ ciudad, aeropuertos: utiles, p })
   }
 
-  dentro.sort((x, y) => x._p - y._p || x.ciudad.localeCompare(y.ciudad))
-  return { coincidencias: dentro, descartadas: fuera.length }
+  grupos.sort(
+    (x, y) =>
+      x.p - y.p ||
+      (y.ciudad.trafico ?? 0) - (x.ciudad.trafico ?? 0) ||
+      x.ciudad.nombre.localeCompare(y.ciudad.nombre),
+  )
+
+  const conAeropuertos = soloVuelos
+  const coincidencias = []
+  for (const { ciudad, aeropuertos, p } of grupos) {
+    const opcionCiudad = { tipo: 'ciudad', codigo: ciudad.codigo, ciudad, aeropuertos, _p: p }
+    const varios = conAeropuertos && aeropuertos.length > 1
+    if (!varios) {
+      coincidencias.push(opcionCiudad)
+      continue
+    }
+    const delAeropuerto = aeropuertos.map((aeropuerto) => ({
+      tipo: 'aeropuerto',
+      codigo: aeropuerto.iata,
+      ciudad,
+      aeropuerto,
+      _p: p,
+    }))
+    const exacto = q ? delAeropuerto.find((o) => normalizar(o.codigo) === q) : null
+    if (exacto) {
+      coincidencias.push(exacto, opcionCiudad, ...delAeropuerto.filter((o) => o !== exacto))
+    } else {
+      coincidencias.push(opcionCiudad, ...delAeropuerto)
+    }
+  }
+
+  return { coincidencias, descartadas }
 }
 
-export function etiquetaDe(catalogo, iata) {
-  const a = buscarAeropuerto(catalogo, iata)
-  if (!a) return iata
-  return a.pais && a.pais !== 'Argentina' ? `${a.ciudad}, ${a.pais}` : a.ciudad
+/** "Madrid, España" — o "Buenos Aires" sin país, que es de acá — y, si el
+ *  lugar es un aeropuerto de una ciudad con varios, cuál: "Buenos Aires
+ *  (Ezeiza)". */
+export function etiquetaDe(catalogo, codigo) {
+  const lugar = buscarLugar(catalogo, codigo)
+  if (!lugar) return codigo
+  const { ciudad, aeropuerto, tipo } = lugar
+  const base = ciudad.pais && ciudad.pais !== 'Argentina' ? `${ciudad.nombre}, ${ciudad.pais}` : ciudad.nombre
+  const variosAeropuertos = ciudad.aeropuertos.filter((a) => a.vuelos).length > 1
+  return tipo === 'aeropuerto' && variosAeropuertos ? `${base} (${aeropuerto.nombre})` : base
+}
+
+/** El nombre corto del aeropuerto ("Aeroparque") o, si no se conoce, su
+ *  código. Sirve para decir "llegás a Aeroparque y salís de Ezeiza" sin
+ *  repetir la ciudad en cada mitad de la frase. */
+export function nombreDeAeropuerto(catalogo, iata) {
+  return buscarLugar(catalogo, iata)?.ciudad.aeropuertos.find((a) => a.iata === iata)?.nombre ?? iata
+}
+
+/** ¿Los dos códigos son la misma ciudad? Un viaje de Buenos Aires a
+ *  Ezeiza no es un viaje: el buscador no lo deja armar. */
+export function mismaCiudad(catalogo, a, b) {
+  if (!a || !b) return false
+  const x = buscarLugar(catalogo, a)
+  const y = buscarLugar(catalogo, b)
+  return Boolean(x && y && x.ciudad.codigo === y.ciudad.codigo)
 }

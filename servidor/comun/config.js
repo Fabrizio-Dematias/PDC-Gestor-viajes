@@ -27,6 +27,18 @@ export const CONFIG = {
     puerto: n(process.env.PUERTO_TRASLADO, 4004),
     url: process.env.URL_TRASLADO ?? 'http://localhost:4004',
   },
+  /** Consumidor de la cola de reservas (Módulo 3): "envía" las
+   *  confirmaciones. Es un proceso aparte a propósito — puede estar
+   *  caído sin que la reserva lo note. */
+  notificaciones: {
+    puerto: n(process.env.PUERTO_NOTIFICACIONES, 4005),
+    url: process.env.URL_NOTIFICACIONES ?? 'http://localhost:4005',
+  },
+  /** Registro de servicios (Módulo 4): quién está vivo y dónde. */
+  registro: {
+    puerto: n(process.env.PUERTO_REGISTRO, 4006),
+    url: process.env.URL_REGISTRO ?? 'http://localhost:4006',
+  },
   nodoAgencia: {
     puerto: n(process.env.PUERTO_NODO_AGENCIA, 4100),
   },
@@ -49,6 +61,17 @@ export const CONFIG = {
     // valida contra las CAs que trae Node — la propia guía de conexión
     // de Supabase pide lo mismo.
     ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    // Con el Postgres en Supabase, abrir una conexión nueva (TLS + pooler)
+    // cuesta ~1,5 s medidos desde acá, contra ~0,25 s de una consulta en
+    // una conexión ya abierta. El pool cierra las conexiones ociosas a los
+    // 10 s por defecto, así que una búsqueda cada tanto pagaba la
+    // conexión entera *antes de llamar siquiera a vuelos*. Se mantiene
+    // una abierta (`min`), se la deja vivir más (`idleTimeoutMillis`) y se
+    // pide keep-alive de TCP para que el pooler no la corte por callada.
+    min: n(process.env.PG_MIN, 1),
+    idleTimeoutMillis: n(process.env.PG_IDLE_MS, 5 * 60_000),
+    keepAlive: true,
+    connectionTimeoutMillis: n(process.env.PG_CONNECT_MS, 8000),
   },
 
   /** Nodo central: caché de última respuesta buena + circuit breaker. */
@@ -72,6 +95,15 @@ export const CONFIG = {
   timeouts: {
     /** Agregador → vertical. */
     vertical: n(process.env.TIMEOUT_VERTICAL_MS, 2500),
+    /** Agregador → vuelos. Con una API externa de por medio (Duffel:
+     *  1,5 a 3,5 s por búsqueda, medidos) el presupuesto de 2,5 s del
+     *  resto dejaba "no disponible por timeout" a una búsqueda que iba
+     *  perfecto, así que vuelos tiene el suyo. Se deduce de `PROVEEDOR`,
+     *  que el agregador tiene que ver igual que el servicio de vuelos
+     *  (con `npm run back` es el mismo `.env`; en contenedores, la misma
+     *  variable en los dos). Sigue valiendo "cada capa se corta antes que
+     *  la de arriba": Duffel 5 s < agregador 5,5 s < front 6 s. */
+    vuelos: n(process.env.TIMEOUT_VUELOS_MS, ['duffel', 'amadeus'].includes(process.env.PROVEEDOR) ? 5500 : 2500),
     /** Vertical → Amadeus/Duffel. Se corta antes que el de arriba a
      *  propósito — salvo Duffel, ver la nota en su valor. */
     amadeus: n(process.env.TIMEOUT_AMADEUS_MS, 1800),
@@ -84,7 +116,7 @@ export const CONFIG = {
      *  alto importa cuando se llama a `vuelos` directo (sin pasar por
      *  el agregador), como en la demo por `curl` del contrato §2.
      *  Ver docs/proveedor-externo.md. */
-    duffel: n(process.env.TIMEOUT_DUFFEL_MS, 4000),
+    duffel: n(process.env.TIMEOUT_DUFFEL_MS, 5000),
     /** Agregador → usuarios (perfil/config/login/registro). Corto por
      *  defecto porque asume Postgres local (Docker); con Postgres
      *  alojado (Supabase u otro) el round-trip de red por sí solo puede
@@ -111,6 +143,22 @@ export const CONFIG = {
     base: process.env.DUFFEL_BASE ?? 'https://api.duffel.com',
   },
 
+  /**
+   * Canal asíncrono de reservas (Redis Streams). El agregador publica un
+   * evento por reserva confirmada y el servicio de notificaciones, que
+   * es un grupo de consumidores, lo procesa cuando puede.
+   */
+  colas: {
+    stream: process.env.STREAM_RESERVAS ?? 'reservas:eventos',
+    grupo: process.env.GRUPO_NOTIFICACIONES ?? 'notificaciones',
+    /** Un mensaje leído y no confirmado (XACK) más de este tiempo se
+     *  considera de un consumidor que murió a mitad de camino y se
+     *  reclama para reintentarlo. */
+    reclamarTrasMs: n(process.env.COLA_RECLAMAR_MS, 3000),
+    /** Cada cuánto se miran los pendientes. */
+    sondeoPendientesMs: n(process.env.COLA_SONDEO_MS, 1000),
+  },
+
   /** Circuit breaker: fallos seguidos que abren el circuito y cuánto
    *  dura abierto. Caché: cuánto vive la última respuesta buena. */
   breaker: {
@@ -124,3 +172,10 @@ export const CONFIG = {
 }
 
 export const VERTICALES = ['vuelos', 'hospedaje', 'traslado']
+
+/** Cuánto espera el agregador a cada vertical antes de darlo por caído. */
+export const presupuestoDe = (vertical) => CONFIG.timeouts[vertical] ?? CONFIG.timeouts.vertical
+
+/** Servicios que se registran en el registro de servicios y que el
+ *  agregador descubre por nombre (servidor/comun/descubrimiento.js). */
+export const SERVICIOS = ['vuelos', 'hospedaje', 'traslado', 'usuarios', 'notificaciones']

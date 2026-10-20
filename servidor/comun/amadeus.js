@@ -105,9 +105,16 @@ export async function consultarAmadeus(ruta, parametros) {
   }
 }
 
-/** "PT12H35M" → 755 */
+/**
+ * Duración ISO 8601 → minutos: "PT12H35M" → 755, "P1DT4H15M" → 1695.
+ *
+ * La duración de un viaje de más de 24 h trae un componente de días
+ * ("P1DT4H15M"): con sólo horas y minutos esos viajes —los de una escala
+ * larga o un cambio de aeropuerto, que son justo los más largos— daban
+ * 0 minutos y la pantalla mostraba "0 min". Los segundos se ignoran.
+ */
 export function duracionAMinutos(iso) {
-  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?$/.exec(iso ?? '')
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:\d+S)?)?$/.exec(iso ?? '')
   if (!m) return 0
-  return Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0)
+  return Number(m[1] ?? 0) * 24 * 60 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)
 }
