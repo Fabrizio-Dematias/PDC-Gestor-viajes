@@ -103,8 +103,15 @@ separadas:
 - **La descripción de servicio** —el artefacto formal y legible por
   máquina— es `docs/openapi.yaml` (OpenAPI 3). Se **genera** desde
   `servidor/agregador/openapi.js` con `npm run docs:openapi`: una única
-  fuente alimenta el JSON que sirve el agregador, el YAML, la
-  y la documentación interactiva.
+  fuente alimenta el JSON que sirve el agregador, el YAML y la
+  documentación interactiva.
+- **Los contratos entre servicios** —lo que el agregador, el registro y
+  el nodo de agencia les piden a vuelos, hospedaje, traslado, usuarios y
+  notificaciones— tienen su propia descripción: `docs/openapi-interno.yaml`,
+  generada desde `servidor/comun/openapi-interno.js` con el mismo comando.
+  Reutiliza los esquemas del contrato público (`Vuelo`, `Reserva`,
+  `Instancia`…) en vez de copiarlos, así una forma se define una sola vez
+  para los dos lados.
 
 ### Mantener la descripción al día
 

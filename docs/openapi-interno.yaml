@@ -1,0 +1,2109 @@
+# Generado desde servidor/comun/openapi-interno.js — no editar a mano.
+# Se regenera con: npm run docs:openapi
+openapi: "3.0.3"
+info:
+  title: "Gestor de viajes — contratos entre servicios"
+  version: "1.0.0"
+  description: |-
+    Lo que cada servicio interno expone a los demás componentes del sistema. La API pública (front → agregador) está en `docs/openapi.yaml`.
+
+    Quién llama a quién: el **agregador** llama a vuelos, hospedaje, traslado, usuarios y notificaciones; **todos** se anotan en el **registro**, que a su vez consulta `/salud/ready` de cada instancia; el **nodo de agencia** sincroniza su bitácora con el agregador.
+
+    Las direcciones no están fijas: se descubren en el registro (`GET /api/v1/servicios/{nombre}?solo_sanas=true`). Las de `servers` son las de desarrollo por defecto.
+
+    Se genera desde `servidor/comun/openapi-interno.js` — no editar el YAML a mano.
+servers:
+  - url: "http://localhost:4001"
+    description: vuelos
+  - url: "http://localhost:4002"
+    description: hospedaje
+  - url: "http://localhost:4003"
+    description: usuarios
+  - url: "http://localhost:4004"
+    description: traslado
+  - url: "http://localhost:4005"
+    description: notificaciones
+  - url: "http://localhost:4006"
+    description: registro
+  - url: "http://localhost:4100"
+    description: nodo-agencia
+tags:
+  - name: vuelos
+    description: "Puerto 4001. Lo llama el agregador: búsqueda, catálogo de ciudades y reservas."
+  - name: hospedaje
+    description: Puerto 4002. Lo llama el agregador.
+  - name: traslado
+    description: Puerto 4004. Lo llama el agregador.
+  - name: usuarios
+    description: "Puerto 4003. Lo llama el agregador, que ya resolvió la sesión: recibe la identidad en `x-usuario-id`/`x-agencia-id`."
+  - name: notificaciones
+    description: "Puerto 4005. Consume la cola de reservas; el agregador le pregunta si el aviso ya salió."
+  - name: registro
+    description: "Puerto 4006. Registro de servicios: todos se anotan, el agregador descubre."
+  - name: nodo-agencia
+    description: "Puerto 4100. Bitácora local de búsquedas de una agencia (la llama el front, sin esperar)."
+  - name: Sondas
+    description: "Las exponen **todos** los servicios."
+  - name: "Demostración"
+    description: "Interruptores de fallos de vuelos, hospedaje y traslado (los usa el panel de fallos vía el agregador). No forman parte del sistema."
+paths:
+  "/salud/live":
+    get:
+      tags:
+        - Sondas
+      summary: "¿El proceso responde? (liveness)"
+      operationId: live
+      description: "No depende de nada externo: si falla, hay que reiniciar el proceso."
+      responses:
+        "200":
+          description: Vivo.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  servicio:
+                    type: string
+                  estado:
+                    type: string
+                    enum:
+                      - vivo
+  "/salud/ready":
+    get:
+      tags:
+        - Sondas
+      summary: "¿Puede atender tráfico ahora? (readiness)"
+      operationId: ready
+      description: "Consulta sus dependencias (base, Redis). Si falla, se le deja de mandar tráfico pero no se lo reinicia. Es lo que consulta el registro en cada health check."
+      responses:
+        "200":
+          description: Listo.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  servicio:
+                    type: string
+                  estado:
+                    type: string
+                    enum:
+                      - listo
+        "503":
+          description: No listo.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  servicio:
+                    type: string
+                  estado:
+                    type: string
+                    enum:
+                      - no_listo
+                      - cerrando
+                  motivo:
+                    type: string
+  "/api/vuelos":
+    get:
+      tags:
+        - vuelos
+      summary: Buscar vuelos
+      operationId: vuelos_buscar
+      parameters:
+        - name: origen
+          in: query
+          required: true
+          description: "Código de ciudad o de aeropuerto."
+          schema:
+            type: string
+            example: BUE
+        - name: destino
+          in: query
+          required: true
+          description: "Código de ciudad o de aeropuerto."
+          schema:
+            type: string
+            example: MAD
+        - name: ida
+          in: query
+          required: true
+          description: Fecha del tramo.
+          schema:
+            type: string
+            format: date
+            example: "2026-11-20"
+        - name: pasajeros
+          in: query
+          required: false
+          description: Cantidad de pasajeros.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 9
+            default: 1
+      responses:
+        "200":
+          description: "Resultados (`[]` si no hay, nunca `null`)."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - vertical
+                  - estado
+                  - generado_en
+                  - items
+                properties:
+                  vertical:
+                    type: string
+                    enum:
+                      - vuelos
+                  estado:
+                    type: string
+                    enum:
+                      - ok
+                  generado_en:
+                    type: string
+                    format: date-time
+                  items:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/Vuelo"
+        "400":
+          description: "Criterios inválidos (`motivo: lugar_desconocido`, `mismo_lugar`…). No cuenta como fallo del servicio."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "503":
+          description: "La fuente de datos falló o el servicio está simulando una caída. Siempre con cuerpo JSON, nunca un 500 pelado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/VerticalNoDisponible"
+  "/api/ciudades":
+    get:
+      tags:
+        - vuelos
+      summary: "Catálogo de ciudades con sus aeropuertos"
+      operationId: vuelos_ciudades
+      description: "El agregador lo sirve como `GET /api/v1/lugares`. Vuelos es el dueño del padrón."
+      responses:
+        "200":
+          description: "Catálogo."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CatalogoCiudades"
+  "/api/lugares":
+    get:
+      tags:
+        - vuelos
+      summary: "Catálogo anterior: aeropuertos sueltos y rutas directas (deprecado)"
+      operationId: vuelos_lugares_v0
+      deprecated: true
+      responses:
+        "200":
+          description: "Aeropuertos y, por origen, los destinos con vuelo directo."
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  aeropuertos:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        iata:
+                          type: string
+                        nombre:
+                          type: string
+                        ciudad:
+                          type: string
+                        pais:
+                          type: string
+                  origenes:
+                    type: array
+                    items:
+                      type: string
+                  rutas:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+  "/api/reservas":
+    post:
+      tags:
+        - vuelos
+      summary: "Reservar (descuento atómico del cupo)"
+      operationId: vuelos_reservar
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Id de la reserva. Repetir el pedido con la misma clave no descuenta otro asiento.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/PedidoReserva"
+      responses:
+        "200":
+          description: "La misma clave ya existía: se devuelve esa reserva (`repetida: true`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Reserva"
+        "201":
+          description: Reserva creada.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Reserva"
+        "400":
+          description: "Falta la `Idempotency-Key` o el pedido es inválido."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: El vuelo no existe.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: No quedan asientos suficientes.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/SinCupo"
+  "/api/reservas/{id}":
+    get:
+      tags:
+        - vuelos
+      summary: Leer una reserva
+      operationId: vuelos_leer_reserva
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "La `Idempotency-Key` con que se creó."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: La reserva.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Reserva"
+        "404":
+          description: "No existe (`motivo: reserva_desconocida`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/cupos/{vueloId}":
+    get:
+      tags:
+        - vuelos
+      summary: Cupo de un vuelo
+      operationId: vuelos_cupo
+      parameters:
+        - name: vueloId
+          in: path
+          required: true
+          description: Id del vuelo.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Capacidad, ocupados y libres."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Cupo"
+        "404":
+          description: "El vuelo todavía no tiene cupo (`motivo: vuelo_desconocido`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/demo/salud":
+    put:
+      tags:
+        - "Demostración"
+      summary: "Simular un estado de salud (demostración)"
+      operationId: demo_salud
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - estado
+              properties:
+                estado:
+                  type: string
+                  enum:
+                    - ok
+                    - lento
+                    - caido
+                    - colgado
+      responses:
+        "200":
+          description: Estado aplicado.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  servicio:
+                    type: string
+                  estado:
+                    type: string
+        "400":
+          description: "Estado inválido."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/demo/listo":
+    put:
+      tags:
+        - "Demostración"
+      summary: "Declararse listo o no listo sin reiniciar (demostración)"
+      operationId: demo_listo
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - listo
+              properties:
+                listo:
+                  type: boolean
+      responses:
+        "200":
+          description: "Readiness aplicada: con `false`, `/salud/ready` responde 503."
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  servicio:
+                    type: string
+                  listo:
+                    type: boolean
+  "/api/hospedaje":
+    get:
+      tags:
+        - hospedaje
+      summary: Buscar hospedaje
+      operationId: hospedaje_buscar
+      parameters:
+        - name: destino
+          in: query
+          required: true
+          description: "Código de ciudad."
+          schema:
+            type: string
+            example: MAD
+        - name: ida
+          in: query
+          required: true
+          description: Entrada.
+          schema:
+            type: string
+            format: date
+            example: "2026-11-20"
+        - name: vuelta
+          in: query
+          required: false
+          description: "Salida; posterior a `ida`."
+          schema:
+            type: string
+            format: date
+            example: "2026-11-20"
+        - name: pasajeros
+          in: query
+          required: false
+          description: "Huéspedes."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 9
+            default: 1
+      responses:
+        "200":
+          description: "Resultados (`[]` si no hay, nunca `null`)."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - vertical
+                  - estado
+                  - generado_en
+                  - items
+                properties:
+                  vertical:
+                    type: string
+                    enum:
+                      - hospedaje
+                  estado:
+                    type: string
+                    enum:
+                      - ok
+                  generado_en:
+                    type: string
+                    format: date-time
+                  items:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/Alojamiento"
+        "400":
+          description: "Criterios inválidos (`motivo: lugar_desconocido`, `mismo_lugar`…). No cuenta como fallo del servicio."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "503":
+          description: "La fuente de datos falló o el servicio está simulando una caída. Siempre con cuerpo JSON, nunca un 500 pelado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/VerticalNoDisponible"
+  "/api/traslado":
+    get:
+      tags:
+        - traslado
+      summary: Buscar traslado
+      operationId: traslado_buscar
+      parameters:
+        - name: destino
+          in: query
+          required: true
+          description: "Código de ciudad."
+          schema:
+            type: string
+            example: MAD
+        - name: pasajeros
+          in: query
+          required: false
+          description: Pasajeros.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 9
+            default: 1
+      responses:
+        "200":
+          description: "Resultados (`[]` si no hay, nunca `null`)."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - vertical
+                  - estado
+                  - generado_en
+                  - items
+                properties:
+                  vertical:
+                    type: string
+                    enum:
+                      - traslado
+                  estado:
+                    type: string
+                    enum:
+                      - ok
+                  generado_en:
+                    type: string
+                    format: date-time
+                  items:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/Traslado"
+        "400":
+          description: "Criterios inválidos (`motivo: lugar_desconocido`, `mismo_lugar`…). No cuenta como fallo del servicio."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "503":
+          description: "La fuente de datos falló o el servicio está simulando una caída. Siempre con cuerpo JSON, nunca un 500 pelado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/VerticalNoDisponible"
+  "/api/auth/registro":
+    post:
+      tags:
+        - usuarios
+      summary: Alta de cliente (queda pendiente de verificar el email)
+      operationId: usuarios_registro
+      parameters:
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - email
+                - nombre
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                nombre:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: "Código enviado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CodigoDeVerificacion"
+        "400":
+          description: "Datos inválidos."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: Ya existe una cuenta con ese email.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/auth/reenviar-codigo":
+    post:
+      tags:
+        - usuarios
+      summary: "Reenviar el código de verificación"
+      operationId: usuarios_reenviar_codigo
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: "Código reenviado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CodigoDeVerificacion"
+        "400":
+          description: "El email ya está verificado."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: No existe una cuenta con ese email.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/auth/verificar-email":
+    post:
+      tags:
+        - usuarios
+      summary: "Verificar el email con el código"
+      operationId: usuarios_verificar_email
+      description: "Devuelve el usuario; el token lo firma el agregador, no este servicio."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - email
+                - codigo
+              properties:
+                email:
+                  type: string
+                  format: email
+                codigo:
+                  type: string
+      responses:
+        "200":
+          description: Email verificado.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Usuario"
+        "400":
+          description: "Código inválido o vencido."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/auth/verificar-credenciales":
+    post:
+      tags:
+        - usuarios
+      summary: "Comprobar usuario y contraseña"
+      operationId: usuarios_verificar_credenciales
+      description: "Compara contra el hash scrypt guardado. Devuelve el usuario; el agregador firma el JWT con eso."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - identificador
+                - password
+              properties:
+                identificador:
+                  type: string
+                  description: Email o nombre de usuario.
+                password:
+                  type: string
+      responses:
+        "200":
+          description: "Credenciales válidas."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Usuario"
+        "401":
+          description: "Credenciales inválidas (`motivo: credenciales_invalidas`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "403":
+          description: "Falta verificar el email (`motivo: email_no_verificado`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/perfil":
+    get:
+      tags:
+        - usuarios
+      summary: Perfil y preferencias
+      operationId: usuarios_leer_perfil
+      parameters:
+        - name: x-usuario-id
+          in: header
+          required: true
+          description: "Id del usuario, ya verificado por el agregador a partir del JWT. Este servicio no sabe qué es un token."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: El perfil.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Perfil"
+        "404":
+          description: No existe el usuario.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+    put:
+      tags:
+        - usuarios
+      summary: Actualizar nombre y/o preferencias (parcial)
+      operationId: usuarios_actualizar_perfil
+      parameters:
+        - name: x-usuario-id
+          in: header
+          required: true
+          description: "Id del usuario, ya verificado por el agregador a partir del JWT. Este servicio no sabe qué es un token."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                preferencias:
+                  type: object
+                  additionalProperties:
+                    type: boolean
+      responses:
+        "200":
+          description: El perfil actualizado.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Perfil"
+  "/api/agencias/{id}":
+    get:
+      tags:
+        - usuarios
+      summary: Marca blanca de una agencia
+      operationId: usuarios_agencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id de la agencia.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: La agencia.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Agencia"
+        "404":
+          description: No existe la agencia.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/agencias/{id}/registro":
+    post:
+      tags:
+        - usuarios
+      summary: "Consolidar un lote de la bitácora de un nodo de agencia"
+      operationId: usuarios_consolidar_bitacora
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id de la agencia.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - entradas
+              properties:
+                entradas:
+                  type: array
+                  items:
+                    "$ref": "#/components/schemas/EntradaBitacora"
+      responses:
+        "200":
+          description: "Cuántas entradas se guardaron."
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  insertadas:
+                    type: integer
+  "/api/admin/config":
+    get:
+      tags:
+        - usuarios
+      summary: Estado de cada vertical en la agencia
+      operationId: usuarios_config
+      parameters:
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Configuración."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ConfigVerticales"
+  "/api/admin/config/{vertical}":
+    put:
+      tags:
+        - usuarios
+      summary: "Activar o apagar un vertical (queda en la auditoría)"
+      operationId: usuarios_cambiar_vertical
+      parameters:
+        - name: vertical
+          in: path
+          required: true
+          description: Vertical.
+          schema:
+            type: string
+            enum:
+              - vuelos
+              - hospedaje
+              - traslado
+        - name: x-usuario-id
+          in: header
+          required: true
+          description: "Id del usuario, ya verificado por el agregador a partir del JWT. Este servicio no sabe qué es un token."
+          schema:
+            type: string
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - estado
+              properties:
+                estado:
+                  type: string
+                  enum:
+                    - activo
+                    - inactivo
+                motivo:
+                  type: string
+      responses:
+        "200":
+          description: "Configuración actualizada."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ConfigVerticales"
+        "400":
+          description: "Estado inválido."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "404":
+          description: Vertical desconocido.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/admin/preferencias-agregadas":
+    get:
+      tags:
+        - usuarios
+      summary: "Cuántos usuarios desactivaron cada vertical"
+      operationId: usuarios_preferencias_agregadas
+      parameters:
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Totales por vertical.
+          content:
+            "application/json":
+              schema:
+                type: object
+  "/api/admin/auditoria":
+    get:
+      tags:
+        - usuarios
+      summary: "Últimos cambios de configuración"
+      operationId: usuarios_auditoria
+      parameters:
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Cambios, del más nuevo al más viejo."
+          content:
+            "application/json":
+              schema:
+                type: array
+                items:
+                  type: object
+  "/api/admin/administradores":
+    get:
+      tags:
+        - usuarios
+      summary: Administradores de la agencia
+      operationId: usuarios_administradores
+      parameters:
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Administradores.
+          content:
+            "application/json":
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Administrador"
+    post:
+      tags:
+        - usuarios
+      summary: Alta de administrador
+      operationId: usuarios_alta_administrador
+      parameters:
+        - name: x-usuario-id
+          in: header
+          required: true
+          description: "Id del usuario, ya verificado por el agregador a partir del JWT. Este servicio no sabe qué es un token."
+          schema:
+            type: string
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                permisos:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - gestion_verticales
+                      - gestion_usuarios
+      responses:
+        "200":
+          description: "Administrador creado: devuelve la lista actualizada."
+          content:
+            "application/json":
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Administrador"
+        "400":
+          description: "Datos inválidos."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "409":
+          description: Ya existe ese usuario.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/admin/administradores/{id}/permisos":
+    put:
+      tags:
+        - usuarios
+      summary: Cambiar los permisos de un administrador
+      operationId: usuarios_permisos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del administrador.
+          schema:
+            type: string
+        - name: x-usuario-id
+          in: header
+          required: true
+          description: "Id del usuario, ya verificado por el agregador a partir del JWT. Este servicio no sabe qué es un token."
+          schema:
+            type: string
+        - name: x-agencia-id
+          in: header
+          required: false
+          description: "Agencia de quien pide, resuelta por el agregador (la del token, si hay sesión)."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - permisos
+              properties:
+                permisos:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - gestion_verticales
+                      - gestion_usuarios
+      responses:
+        "200":
+          description: "Permisos actualizados: devuelve la lista actualizada."
+          content:
+            "application/json":
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Administrador"
+        "404":
+          description: No existe ese administrador en la agencia.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/notificaciones/{reservaId}":
+    get:
+      tags:
+        - notificaciones
+      summary: "¿Ya salió el aviso de esta reserva?"
+      operationId: notificaciones_estado
+      parameters:
+        - name: reservaId
+          in: path
+          required: true
+          description: Id de la reserva.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "El aviso salió."
+          content:
+            "application/json":
+              schema:
+                type: object
+                required:
+                  - reserva_id
+                  - estado
+                properties:
+                  reserva_id:
+                    type: string
+                  estado:
+                    type: string
+                    enum:
+                      - enviada
+                  enviada_en:
+                    type: string
+                    format: date-time
+                  repeticiones:
+                    type: integer
+        "404":
+          description: "Todavía no se envió (`motivo: pendiente`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/notificaciones":
+    get:
+      tags:
+        - notificaciones
+      summary: "Últimos 20 avisos enviados"
+      operationId: notificaciones_ultimas
+      responses:
+        "200":
+          description: Avisos.
+          content:
+            "application/json":
+              schema:
+                type: array
+                items:
+                  type: object
+  "/api/v1/servicios/{nombre}/{id}":
+    put:
+      tags:
+        - registro
+      summary: "Registrar una instancia, o renovarla (latido)"
+      operationId: registro_anotar
+      description: "Idempotente: cada servicio lo repite cada 3 s. Una instancia sin latido durante el TTL (10 s) se da de baja sola."
+      parameters:
+        - name: nombre
+          in: path
+          required: true
+          description: Nombre del servicio.
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9-]{1,40}$"
+        - name: id
+          in: path
+          required: true
+          description: "Id de la instancia, ej. `vuelos@4001`."
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  example: "http://localhost:4001"
+                version:
+                  type: string
+      responses:
+        "200":
+          description: Instancia registrada.
+          content:
+            "application/json":
+              schema:
+                allOf:
+                  - "$ref": "#/components/schemas/Instancia"
+                  - type: object
+                    properties:
+                      ttl_ms:
+                        type: integer
+        "400":
+          description: "Nombre o url inválidos."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+    delete:
+      tags:
+        - registro
+      summary: Baja ordenada
+      operationId: registro_baja
+      parameters:
+        - name: nombre
+          in: path
+          required: true
+          description: Nombre del servicio.
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          description: Id de la instancia.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dada de baja.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: No hay una instancia con ese id.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+  "/api/v1/servicios":
+    get:
+      tags:
+        - registro
+      summary: Todos los servicios y sus instancias
+      operationId: registro_servicios
+      parameters:
+        - name: solo_sanas
+          in: query
+          required: false
+          description: "Sólo las que pasaron el último health check."
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Servicios.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  generado_en:
+                    type: string
+                    format: date-time
+                  servicios:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        "$ref": "#/components/schemas/Instancia"
+  "/api/v1/servicios/{nombre}":
+    get:
+      tags:
+        - registro
+      summary: Instancias de un servicio (lo que consulta el cliente para descubrirlo)
+      operationId: registro_instancias
+      parameters:
+        - name: nombre
+          in: path
+          required: true
+          description: Nombre del servicio.
+          schema:
+            type: string
+        - name: solo_sanas
+          in: query
+          required: false
+          description: "Sólo las que pasaron el último health check."
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Instancias.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  nombre:
+                    type: string
+                  conocido:
+                    type: boolean
+                  instancias:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/Instancia"
+  "/api/registro":
+    post:
+      tags:
+        - nodo-agencia
+      summary: "Anotar una búsqueda en la bitácora local"
+      operationId: nodo_agencia_anotar
+      description: "Se guarda en la base local y se sincroniza con el central en segundo plano (`POST /api/v1/agencias/{id}/registro` del agregador)."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/EntradaBitacora"
+      responses:
+        "200":
+          description: Guardada.
+          content:
+            "application/json":
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "400":
+          description: "Faltan `vertical` o `estado`."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+components:
+  schemas:
+    Precio:
+      type: object
+      required:
+        - monto
+        - moneda
+      properties:
+        monto:
+          type: number
+          example: 1900000
+        moneda:
+          type: string
+          description: "ISO 4217 (ARS, USD, EUR…)."
+          example: ARS
+    Segmento:
+      type: object
+      description: Un tramo de un itinerario con escalas.
+      required:
+        - origen
+        - destino
+        - salida
+        - llegada
+        - duracion_min
+        - aerolinea
+        - codigo_aerolinea
+      properties:
+        origen:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: EZE
+        destino:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: EZE
+        salida:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          description: "Hora de reloj del aeropuerto, escrita con `Z`: se muestra tal cual, sin convertir al huso de quien mira."
+          example: "2026-11-20T11:45:00.000Z"
+        llegada:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          description: "Hora de reloj del aeropuerto, escrita con `Z`: se muestra tal cual, sin convertir al huso de quien mira."
+          example: "2026-11-20T11:45:00.000Z"
+        duracion_min:
+          type: integer
+        aerolinea:
+          type: string
+        codigo_aerolinea:
+          type: string
+        espera_min:
+          type: integer
+          description: "Cuánto se espera en el aeropuerto de llegada hasta el próximo vuelo. El último tramo no lo trae."
+        cambio_aeropuerto:
+          type: boolean
+          description: "Verdadero si el próximo vuelo sale de **otro aeropuerto de la misma ciudad** (llegás a Aeroparque y salís de Ezeiza): el traslado por tierra corre por cuenta del pasajero. Campo opcional."
+    Vuelo:
+      type: object
+      required:
+        - id
+        - aerolinea
+        - codigo_aerolinea
+        - origen
+        - destino
+        - salida
+        - llegada
+        - duracion_min
+        - escalas
+        - precio
+      properties:
+        id:
+          type: string
+          description: "Único dentro del vertical. Un itinerario con escalas junta los ids de sus tramos con `~`."
+          example: IBEZEMAD-1-2026-11-20
+        aerolinea:
+          type: string
+          description: "Con varias aerolíneas se nombran todas, unidas con \" + \"."
+        codigo_aerolinea:
+          type: string
+        origen:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: EZE
+        destino:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: EZE
+        salida:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          description: "Hora de reloj del aeropuerto, escrita con `Z`: se muestra tal cual, sin convertir al huso de quien mira."
+          example: "2026-11-20T11:45:00.000Z"
+        llegada:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          description: "Hora de reloj del aeropuerto, escrita con `Z`: se muestra tal cual, sin convertir al huso de quien mira."
+          example: "2026-11-20T11:45:00.000Z"
+        duracion_min:
+          type: integer
+          description: "Duración real de punta a punta, escalas incluidas."
+        escalas:
+          type: integer
+          minimum: 0
+        precio:
+          "$ref": "#/components/schemas/Precio"
+        segmentos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Segmento"
+          description: "Campo opcional (agregado sin romper a nadie): sólo cuando hay escalas."
+    Alojamiento:
+      type: object
+      required:
+        - id
+        - nombre
+        - ciudad
+        - estrellas
+        - puntaje
+        - opiniones
+        - servicios
+        - noches
+        - precio
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        ciudad:
+          type: string
+        estrellas:
+          type: integer
+        puntaje:
+          type: number
+        opiniones:
+          type: integer
+        servicios:
+          type: array
+          items:
+            type: string
+        noches:
+          type: integer
+        precio:
+          "$ref": "#/components/schemas/Precio"
+    Traslado:
+      type: object
+      required:
+        - id
+        - proveedor
+        - vehiculo
+        - capacidad
+        - precio
+      properties:
+        id:
+          type: string
+        proveedor:
+          type: string
+        vehiculo:
+          type: string
+        capacidad:
+          type: integer
+        precio:
+          "$ref": "#/components/schemas/Precio"
+    RespuestaBusqueda:
+      type: object
+      required:
+        - vertical
+        - estado
+        - generado_en
+        - items
+      properties:
+        vertical:
+          type: string
+          enum:
+            - vuelos
+            - hospedaje
+            - traslado
+        estado:
+          type: string
+          enum:
+            - ok
+        generado_en:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            anyOf:
+              - "$ref": "#/components/schemas/Vuelo"
+              - "$ref": "#/components/schemas/Alojamiento"
+              - "$ref": "#/components/schemas/Traslado"
+        cacheado:
+          type: boolean
+          description: "Verdadero si son los datos de la última búsqueda buena (circuito abierto): transparencia de replicación, con su costo a la vista."
+        edad_ms:
+          type: integer
+          description: "Antigüedad de los datos cacheados."
+    NoDisponible:
+      type: object
+      required:
+        - vertical
+        - estado
+        - motivo
+        - generado_en
+      properties:
+        vertical:
+          type: string
+          enum:
+            - vuelos
+            - hospedaje
+            - traslado
+        estado:
+          type: string
+          enum:
+            - unavailable
+        motivo:
+          type: string
+          enum:
+            - timeout
+            - error
+            - circuito_abierto
+            - apagado_por_admin
+            - desactivado_por_usuario
+            - sin_instancias
+        generado_en:
+          type: string
+          format: date-time
+    Rechazo:
+      type: object
+      required:
+        - vertical
+        - estado
+        - motivo
+        - generado_en
+      properties:
+        vertical:
+          type: string
+          enum:
+            - vuelos
+            - hospedaje
+            - traslado
+        estado:
+          type: string
+          enum:
+            - rejected
+        motivo:
+          type: string
+          enum:
+            - mismo_lugar
+            - lugar_desconocido
+            - solicitud_invalida
+        error:
+          type: string
+        generado_en:
+          type: string
+          format: date-time
+    BusquedaCombinada:
+      type: object
+      required:
+        - generado_en
+        - no_disponibles
+        - vuelos
+        - hospedaje
+        - traslado
+      properties:
+        generado_en:
+          type: string
+          format: date-time
+        vuelos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Vuelo"
+        hospedaje:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Alojamiento"
+        traslado:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Traslado"
+        no_disponibles:
+          type: array
+          description: "Un vertical acá tiene su clave presente y en `[]`: nunca se omite."
+          items:
+            type: object
+            required:
+              - vertical
+              - motivo
+            properties:
+              vertical:
+                type: string
+              motivo:
+                type: string
+        aviso:
+          type: string
+    Aeropuerto:
+      type: object
+      required:
+        - iata
+        - nombre
+        - vuelos
+      properties:
+        iata:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: EZE
+        nombre:
+          type: string
+          example: Ezeiza
+        vuelos:
+          type: boolean
+    Ciudad:
+      type: object
+      required:
+        - codigo
+        - nombre
+        - pais
+        - trafico
+        - vuelos
+        - aeropuertos
+      properties:
+        codigo:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: BUE
+          description: "Código de la ciudad (`BUE`) o, para una ciudad de un solo aeropuerto, el del aeropuerto."
+        nombre:
+          type: string
+          example: Buenos Aires
+        pais:
+          type: string
+          example: Argentina
+        trafico:
+          type: integer
+          description: "Rutas que tocan sus aeropuertos; ordena las sugerencias."
+        vuelos:
+          type: boolean
+          description: "Si algún aeropuerto de la ciudad tiene vuelos."
+        aeropuertos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Aeropuerto"
+    CatalogoCiudades:
+      type: object
+      required:
+        - version
+        - ciudades
+      properties:
+        version:
+          type: integer
+          example: 1
+        generado_en:
+          type: string
+          format: date-time
+        ciudades:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Ciudad"
+    PedidoReserva:
+      type: object
+      required:
+        - vuelos
+      properties:
+        vuelos:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            type: string
+          description: "Ids de vuelo tal como salieron de la búsqueda: uno por tramo (ida y vuelta, multidestino)."
+        pasajeros:
+          type: integer
+          minimum: 1
+          maximum: 9
+          default: 1
+        contacto:
+          type: object
+          properties:
+            email:
+              type: string
+              format: email
+        nombres:
+          type: array
+          items:
+            type: string
+          description: "Sólo nombres: los documentos no viajan al servidor."
+    Reserva:
+      type: object
+      required:
+        - reserva_id
+        - codigo
+        - estado
+        - vuelos
+        - tramos
+        - pasajeros
+        - creada_en
+        - repetida
+      properties:
+        reserva_id:
+          type: string
+          description: "La `Idempotency-Key`."
+        codigo:
+          type: string
+          pattern: "^[0-9A-F]{6}$"
+          example: F59C8A
+        estado:
+          type: string
+          enum:
+            - confirmada
+        vuelos:
+          type: array
+          items:
+            type: string
+        tramos:
+          type: array
+          items:
+            type: string
+          description: "Los tramos individuales cuyo cupo se descontó."
+        pasajeros:
+          type: integer
+        email:
+          type: string
+        creada_en:
+          type: string
+          format: date-time
+        repetida:
+          type: boolean
+          description: "Verdadero si es una repetición de un pedido anterior con la misma clave."
+    ReservaCreada:
+      allOf:
+        - "$ref": "#/components/schemas/Reserva"
+        - type: object
+          required:
+            - evento_encolado
+          properties:
+            evento_encolado:
+              type: boolean
+              description: "Falso si Redis estaba caído: la reserva igual se confirma, pero el aviso no se encoló."
+    ReservaConAviso:
+      allOf:
+        - "$ref": "#/components/schemas/Reserva"
+        - type: object
+          required:
+            - notificacion
+          properties:
+            notificacion:
+              type: object
+              required:
+                - estado
+              properties:
+                estado:
+                  type: string
+                  enum:
+                    - enviada
+                    - pendiente
+                    - no_disponible
+                enviada_en:
+                  type: string
+                  format: date-time
+    SinCupo:
+      type: object
+      required:
+        - error
+        - motivo
+        - vuelo_id
+      properties:
+        error:
+          type: string
+        motivo:
+          type: string
+          enum:
+            - sin_cupo
+        vuelo_id:
+          type: string
+        libres:
+          type: integer
+    ReservaNoConfirmada:
+      type: object
+      required:
+        - error
+        - motivo
+        - reintentable
+      properties:
+        error:
+          type: string
+        motivo:
+          type: string
+        reintentable:
+          type: boolean
+        nota:
+          type: string
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        motivo:
+          type: string
+    Agencia:
+      type: object
+      required:
+        - id
+        - nombre
+        - color_primario
+        - verticales_habilitados
+      properties:
+        id:
+          type: string
+          example: ag-demo
+        nombre:
+          type: string
+        color_primario:
+          type: string
+          example: "#1565c0"
+        descripcion:
+          type: string
+        verticales_habilitados:
+          type: array
+          items:
+            type: string
+            enum:
+              - vuelos
+              - hospedaje
+              - traslado
+        presupuestos_ms:
+          type: object
+          description: "Cuánto espera el agregador a cada vertical antes de darlo por no disponible. El cliente se corta un poco después. Campo opcional (agregado sin romper a nadie)."
+          additionalProperties:
+            type: integer
+          example:
+            vuelos: 2500
+            hospedaje: 2500
+            traslado: 2500
+    Usuario:
+      type: object
+      required:
+        - id
+        - nombre
+        - rol
+        - agencia_id
+        - permisos
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        rol:
+          type: string
+          enum:
+            - usuario
+            - admin
+        agencia_id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+        permisos:
+          type: array
+          items:
+            type: string
+    Sesion:
+      type: object
+      required:
+        - token
+        - usuario
+      properties:
+        token:
+          type: string
+        usuario:
+          "$ref": "#/components/schemas/Usuario"
+    CodigoDeVerificacion:
+      type: object
+      required:
+        - ok
+        - email
+      properties:
+        ok:
+          type: boolean
+        email:
+          type: string
+        codigo_demo:
+          type: string
+          description: "Sólo con el proveedor de email ficticio: el código que uno real mandaría por correo."
+    Perfil:
+      type: object
+      required:
+        - id
+        - nombre
+        - rol
+        - agencia_id
+        - preferencias
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        rol:
+          type: string
+        agencia_id:
+          type: string
+        preferencias:
+          type: object
+          additionalProperties:
+            type: boolean
+    ConfigVerticales:
+      type: object
+      additionalProperties:
+        type: object
+        required:
+          - estado
+        properties:
+          estado:
+            type: string
+            enum:
+              - activo
+              - inactivo
+          motivo:
+            type: string
+    Administrador:
+      type: object
+      required:
+        - id
+        - username
+        - permisos
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        username:
+          type: string
+        permisos:
+          type: array
+          items:
+            type: string
+    Instancia:
+      type: object
+      required:
+        - id
+        - url
+        - estado
+      properties:
+        id:
+          type: string
+          example: "vuelos@4001"
+        url:
+          type: string
+          example: "http://localhost:4001"
+        estado:
+          type: string
+          enum:
+            - pasando
+            - critico
+            - desconocido
+          description: "Resultado de su último health check (`/salud/ready`)."
+        detalle:
+          type: string
+        latencia_ms:
+          type: integer
+        registrada_en:
+          type: string
+          format: date-time
+        ultimo_latido:
+          type: string
+          format: date-time
+        ultimo_chequeo:
+          type: string
+          format: date-time
+    EstadoDelSistema:
+      type: object
+      required:
+        - registro
+        - servicios
+      properties:
+        registro:
+          type: string
+          enum:
+            - disponible
+            - no_disponible
+          description: "Si el registro de servicios responde. Si no, el sistema sigue con las direcciones fijas de configuración."
+        servicios:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              "$ref": "#/components/schemas/Instancia"
+    Salud:
+      type: object
+      required:
+        - servicio
+        - servicios
+      properties:
+        servicio:
+          type: string
+        generado_en:
+          type: string
+          format: date-time
+        servicios:
+          type: object
+          additionalProperties:
+            type: object
+            required:
+              - estado
+            properties:
+              estado:
+                type: string
+                enum:
+                  - ok
+                  - unavailable
+    VerticalNoDisponible:
+      type: object
+      required:
+        - vertical
+        - estado
+        - motivo
+        - generado_en
+      properties:
+        vertical:
+          type: string
+          enum:
+            - vuelos
+            - hospedaje
+            - traslado
+        estado:
+          type: string
+          enum:
+            - unavailable
+        motivo:
+          type: string
+          enum:
+            - timeout
+            - error
+        detalle:
+          type: string
+        generado_en:
+          type: string
+          format: date-time
+    Cupo:
+      type: object
+      required:
+        - vuelo_id
+        - capacidad
+        - ocupados
+        - libres
+      properties:
+        vuelo_id:
+          type: string
+        capacidad:
+          type: integer
+        ocupados:
+          type: integer
+        libres:
+          type: integer
+    EntradaBitacora:
+      type: object
+      required:
+        - vertical
+        - estado
+      properties:
+        vertical:
+          type: string
+        estado:
+          type: string
+        motivo:
+          type: string
+        criterios:
+          type: object
+        buscado_en:
+          type: string
+          format: date-time

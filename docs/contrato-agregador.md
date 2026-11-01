@@ -827,6 +827,12 @@ descripción de la API. De ahí salen:
 - `docs/openapi.yaml` — el mismo documento en YAML, generado con
   `npm run docs:openapi`.
 
+Lo que hay detrás del agregador —las rutas de vuelos, hospedaje,
+traslado, usuarios, notificaciones, el registro y el nodo de agencia—
+está descripto aparte, en `docs/openapi-interno.yaml` (fuente:
+`servidor/comun/openapi-interno.js`, mismo comando). Reutiliza los
+esquemas de este contrato en vez de copiarlos.
+
 Contrato de interfaz (el acuerdo, en prosa: este documento) y
 descripción de servicio (el acuerdo en un formato verificable: el YAML)
 son dos cosas distintas pero relacionadas; confundirlas es lo que
