@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { ESQUEMA } from './tls.js'
+
 /**
  * Configuración de todos los servicios en un solo lugar.
  *
@@ -13,31 +17,31 @@ export const CONFIG = {
   },
   vuelos: {
     puerto: n(process.env.PUERTO_VUELOS, 4001),
-    url: process.env.URL_VUELOS ?? 'http://localhost:4001',
+    url: process.env.URL_VUELOS ?? `${ESQUEMA}://localhost:4001`,
   },
   hospedaje: {
     puerto: n(process.env.PUERTO_HOSPEDAJE, 4002),
-    url: process.env.URL_HOSPEDAJE ?? 'http://localhost:4002',
+    url: process.env.URL_HOSPEDAJE ?? `${ESQUEMA}://localhost:4002`,
   },
   usuarios: {
     puerto: n(process.env.PUERTO_USUARIOS, 4003),
-    url: process.env.URL_USUARIOS ?? 'http://localhost:4003',
+    url: process.env.URL_USUARIOS ?? `${ESQUEMA}://localhost:4003`,
   },
   traslado: {
     puerto: n(process.env.PUERTO_TRASLADO, 4004),
-    url: process.env.URL_TRASLADO ?? 'http://localhost:4004',
+    url: process.env.URL_TRASLADO ?? `${ESQUEMA}://localhost:4004`,
   },
   /** Consumidor de la cola de reservas (Módulo 3): "envía" las
    *  confirmaciones. Es un proceso aparte a propósito — puede estar
    *  caído sin que la reserva lo note. */
   notificaciones: {
     puerto: n(process.env.PUERTO_NOTIFICACIONES, 4005),
-    url: process.env.URL_NOTIFICACIONES ?? 'http://localhost:4005',
+    url: process.env.URL_NOTIFICACIONES ?? `${ESQUEMA}://localhost:4005`,
   },
   /** Registro de servicios (Módulo 4): quién está vivo y dónde. */
   registro: {
     puerto: n(process.env.PUERTO_REGISTRO, 4006),
-    url: process.env.URL_REGISTRO ?? 'http://localhost:4006',
+    url: process.env.URL_REGISTRO ?? `${ESQUEMA}://localhost:4006`,
   },
   nodoAgencia: {
     puerto: n(process.env.PUERTO_NODO_AGENCIA, 4100),
@@ -56,11 +60,8 @@ export const CONFIG = {
     user: process.env.PGUSER ?? 'gestor',
     password: process.env.PGPASSWORD ?? 'gestor',
     // Supabase (y casi todo Postgres alojado) exige TLS; el contenedor
-    // local no lo pide, así que queda apagado por defecto.
-    // `rejectUnauthorized: false` porque el certificado de Supabase no
-    // valida contra las CAs que trae Node — la propia guía de conexión
-    // de Supabase pide lo mismo.
-    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    // local no lo pide, así que queda apagado por defecto. Ver `sslPostgres`.
+    ssl: process.env.PGSSL === 'true' ? sslPostgres() : undefined,
     // Con el Postgres en Supabase, abrir una conexión nueva (TLS + pooler)
     // cuesta ~1,5 s medidos desde acá, contra ~0,25 s de una consulta en
     // una conexión ya abierta. El pool cierra las conexiones ociosas a los
@@ -81,7 +82,7 @@ export const CONFIG = {
 
   /** Agencia con la que arranca una instancia de nodo-agencia. */
   agenciaId: process.env.AGENCIA_ID ?? 'ag-demo',
-  urlAgregador: process.env.URL_AGREGADOR ?? 'http://localhost:4000',
+  urlAgregador: process.env.URL_AGREGADOR ?? `${ESQUEMA}://localhost:4000`,
 
   /** Sesión (servidor/comun/jwt.js). Sólo el agregador la usa. El
    *  secreto por defecto alcanza para desarrollo, no para producción —
@@ -169,6 +170,20 @@ export const CONFIG = {
   cache: {
     ttlMs: n(process.env.CACHE_TTL_MS, 600_000),
   },
+}
+
+/**
+ * TLS hacia Postgres **verificando** el certificado del servidor. Antes
+ * se conectaba con `rejectUnauthorized: false` (cifrado, pero sin
+ * comprobar contra quién): cualquiera en el medio podía presentarse como
+ * la base y recibir la contraseña. El certificado de Supabase no está
+ * firmado por una CA que traiga Node sino por la suya propia, que es
+ * pública y está versionada en `servidor/certificados/`. Otro Postgres
+ * alojado: `PGSSLROOTCERT=<ruta a su CA>`.
+ */
+function sslPostgres() {
+  const ca = process.env.PGSSLROOTCERT ?? fileURLToPath(new URL('../certificados/supabase-root-2021-ca.crt', import.meta.url))
+  return { ca: readFileSync(ca, 'utf8'), rejectUnauthorized: true }
 }
 
 export const VERTICALES = ['vuelos', 'hospedaje', 'traslado']

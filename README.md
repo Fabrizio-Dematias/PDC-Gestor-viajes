@@ -19,7 +19,13 @@ se sumaron los dos módulos de la materia que siguieron a la arquitectura:
   carrera por el último asiento y su solución.
 - **Módulo 4, middleware** (`docs/modulo-4-middleware.md`): registro de
   servicios con health checks, sondas `live`/`ready`, API versionada
-  (`/api/v1`) y descrita con OpenAPI (`docs/openapi.yaml`).
+  (`/api/v1`) y descrita con OpenAPI (`docs/openapi.yaml` para la API
+  pública, `docs/openapi-interno.yaml` para los contratos entre servicios).
+- **Módulo 5, seguridad** (`docs/informe-amenazas.md`): TLS entre
+  componentes con una CA propia y TLS mutuo hacia los servicios internos
+  (`TLS=on`), verificación del certificado de Postgres, límite de intentos
+  de login, y la prueba de recuperación ante fallos
+  (`docs/recuperacion-ante-fallos.md`).
 
 El front funciona en dos modos. Sin backend habla con un servidor
 simulado en memoria que cumple el mismo contrato; con backend habla con
@@ -221,11 +227,14 @@ docs/
   manual-de-funcionamiento.md Cómo levantar, usar y diagnosticar el sistema
   contrato-agregador.md      El contrato, escrito antes que el código
   openapi.yaml               El contrato en formato máquina (generado)
+  openapi-interno.yaml       Los contratos entre servicios (generado)
   analisis-rutas.md          Qué rutas se pueden buscar, con cifras, y los
                              errores que se encontraron al revisar
   modulo-3-comunicacion.md   Síncrono/asíncrono, semántica de entrega,
                              concurrencia (reservas)
   modulo-4-middleware.md     Middleware, contratos, registro de servicios
+  informe-amenazas.md        Qué se protegió y de qué; cómo activar TLS
+  recuperacion-ante-fallos.md Mecanismos de recuperación y su prueba
   arquitectura-multi-nodo.md Los tres tipos de nodo y por qué
   proveedor-externo.md       Qué pasó con Amadeus, Duffel y el resto
 
@@ -332,6 +341,7 @@ actualizan solos.
 | 6 | Panel de admin: ya lee y escribe contra el backend, y ya gestiona administradores y permisos; falta mostrar la auditoría |
 | 7 ✓ | **Hecho.** Reservas con concurrencia y canal asíncrono (`docs/modulo-3-comunicacion.md`) |
 | M4 ✓ | **Hecho.** Registro de servicios, health checks, versionado y OpenAPI (`docs/modulo-4-middleware.md`) |
+| M5 ✓ | **Hecho.** TLS y TLS mutuo entre componentes, límite de intentos de login, informe de amenazas y prueba de recuperación (`docs/informe-amenazas.md`) |
 
 La auditoría de cambios de configuración (Módulo 5) ya está: se registra
 en `usuarios.db` y se consulta en `GET /api/admin/auditoria`.

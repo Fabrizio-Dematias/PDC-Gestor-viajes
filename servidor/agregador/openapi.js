@@ -229,7 +229,7 @@ export const OPENAPI = {
           required: true,
           content: { 'application/json': { schema: { type: 'object', required: ['email', 'codigo'], properties: { email: { type: 'string', format: 'email' }, codigo: { type: 'string' } } } } },
         },
-        responses: { 200: json(ref('Sesion'), 'Verificado: devuelve la sesión.'), 400: error('Código inválido o vencido.') },
+        responses: { 200: json(ref('Sesion'), 'Verificado: devuelve la sesión.'), 400: error('Código inválido o vencido.'), 429: error('Cinco códigos inválidos seguidos: bloqueado 15 minutos (`motivo: demasiados_intentos`).') },
       },
     },
     '/auth/login': {
@@ -246,6 +246,7 @@ export const OPENAPI = {
           200: json(ref('Sesion'), 'La sesión: un JWT firmado por el agregador.'),
           401: error('Credenciales inválidas (`motivo: credenciales_invalidas`).'),
           403: error('Falta verificar el email (`motivo: email_no_verificado`).'),
+          429: error('Cinco intentos fallidos seguidos: la cuenta queda bloqueada 15 minutos (`motivo: demasiados_intentos`, cabecera `Retry-After`).'),
           503: error('El servicio de usuarios no responde.'),
         },
       },

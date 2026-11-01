@@ -5,6 +5,7 @@ import { conEstado, conTexto, conVersion, crearServicio, ErrorHttp } from '../co
 import { firmar, verificar as verificarToken } from '../comun/jwt.js'
 import { pedirJson } from '../comun/pedir.js'
 import { contexto, invalidarConfig, invalidarPerfil } from './contexto.js'
+import { conLimiteDeIntentos } from './intentos.js'
 import { OPENAPI } from './openapi.js'
 import { leerReserva, reservar } from './reservas.js'
 import {
@@ -404,19 +405,21 @@ const rutasApi = {
 
   /** A diferencia de un proxy común, además firma el token: verificar
    *  el email dispara el login solo, sin pedir la contraseña de nuevo. */
-  'POST /api/auth/verificar-email': async ({ cuerpo }) => {
-    const { ok, estado, datos } = await llamarUsuarios('/api/auth/verificar-email', { metodo: 'POST', cuerpo })
-    if (!ok) return conEstado(estado, datos)
-    return {
-      token: firmar(
-        { sub: datos.id, rol: datos.rol, agencia_id: datos.agencia_id, permisos: datos.permisos },
-        CONFIG.jwt.ttlSeg,
-      ),
-      usuario: datos,
-    }
-  },
+  'POST /api/auth/verificar-email': ({ cuerpo }) =>
+    conLimiteDeIntentos(`verificar:${cuerpo?.email}`, async () => {
+      const { ok, estado, datos } = await llamarUsuarios('/api/auth/verificar-email', { metodo: 'POST', cuerpo })
+      if (!ok) return conEstado(estado, datos)
+      return {
+        token: firmar(
+          { sub: datos.id, rol: datos.rol, agencia_id: datos.agencia_id, permisos: datos.permisos },
+          CONFIG.jwt.ttlSeg,
+        ),
+        usuario: datos,
+      }
+    }),
 
-  'POST /api/auth/login': ({ cuerpo }) => loguear(cuerpo?.identificador, cuerpo?.password),
+  'POST /api/auth/login': ({ cuerpo }) =>
+    conLimiteDeIntentos(cuerpo?.identificador, () => loguear(cuerpo?.identificador, cuerpo?.password)),
 
   /**
    * Búsqueda de un vertical. Es la que usa el front: una request por
@@ -660,6 +663,9 @@ async function lugaresV0({ cabeceras }) {
 crearServicio({
   nombre: 'agregador',
   puerto: CONFIG.agregador.puerto,
+  // Le habla el navegador: TLS común, sin certificado de cliente. La
+  // identidad del usuario la da el JWT.
+  publico: true,
   // El agregador no depende de nadie para atender: falla abierto con
   // usuarios y con Redis (contrato §7 y §9) y cae a las direcciones fijas
   // si no hay registro. Por eso siempre está listo; lo que sabe del

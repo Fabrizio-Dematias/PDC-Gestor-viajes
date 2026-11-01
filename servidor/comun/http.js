@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
+import { createServer as crearServidorTls } from 'node:https'
 import { gzipSync } from 'node:zlib'
 import { registrarServicio } from './descubrimiento.js'
+import { ESQUEMA, opcionesServidor, TLS_ACTIVO } from './tls.js'
 import { conIdDePedido } from './traza.js'
 
 /**
@@ -30,6 +32,10 @@ import { conIdDePedido } from './traza.js'
  *   cerrarse se da de baja.
  * - **Cierre ordenado**: al recibir SIGTERM deja de declararse listo,
  *   avisa a quien corresponda (`alCerrar`) y recién entonces cierra.
+ * - **TLS** (con `TLS=on`, ver `tls.js`): HTTPS, y TLS mutuo en los
+ *   servicios internos.
+ * - **Tamaño del cuerpo**: más de `MAXIMO_CUERPO` se corta con 413 sin
+ *   terminar de leerlo, para que un pedido gigante no llene la memoria.
  */
 
 const CORS = {
@@ -42,6 +48,11 @@ const CORS = {
 
 /** Por debajo de esto comprimir cuesta más CPU de lo que ahorra en red. */
 const UMBRAL_GZIP = 2048
+
+/** El cuerpo más grande que acepta un servicio. El pedido legítimo más
+ *  grande (un lote de bitácora de un nodo de agencia) anda por las
+ *  decenas de KB. */
+const MAXIMO_CUERPO = 1024 * 1024
 
 /**
  * Marca para distinguir "el handler quiere otro código HTTP" de "el
@@ -115,8 +126,14 @@ function emparejar(patron, metodo, segmentos) {
 
 async function leerCuerpo(req) {
   if (req.method === 'GET' || req.method === 'HEAD') return undefined
+  if (Number(req.headers['content-length']) > MAXIMO_CUERPO) throw new ErrorHttp(413, 'el cuerpo es demasiado grande')
   const trozos = []
-  for await (const t of req) trozos.push(t)
+  let largo = 0
+  for await (const t of req) {
+    largo += t.length
+    if (largo > MAXIMO_CUERPO) throw new ErrorHttp(413, 'el cuerpo es demasiado grande')
+    trozos.push(t)
+  }
   if (trozos.length === 0) return undefined
   try {
     return JSON.parse(Buffer.concat(trozos).toString('utf8'))
@@ -178,8 +195,11 @@ export function conVersion(rutas, version = 'v1') {
  * @param rutasSilenciosas prefijos de ruta que no se anotan en el log
  *   cuando salen bien: las que se llaman cada pocos segundos (latidos,
  *   sondeos) taparían todo lo demás.
+ * @param publico si le habla el navegador (agregador, nodo de agencia).
+ *   Con `TLS=on`, un servicio no público exige certificado de cliente
+ *   (mTLS): sólo otro componente del sistema puede llamarlo.
  */
-export function crearServicio({ nombre, puerto, rutas, listo, alArrancar, alCerrar, registrar = true, rutasSilenciosas = [] }) {
+export function crearServicio({ nombre, puerto, rutas, listo, alArrancar, alCerrar, registrar = true, rutasSilenciosas = [], publico = false }) {
   let cerrando = false
   let registro = null
 
@@ -218,7 +238,7 @@ export function crearServicio({ nombre, puerto, rutas, listo, alArrancar, alCerr
     handler,
   }))
 
-  const servidor = createServer(async (req, res) => {
+  const atender = async (req, res) => {
     const arranque = Date.now()
     const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`)
     const segmentos = url.pathname.split('/').filter(Boolean)
@@ -277,10 +297,15 @@ export function crearServicio({ nombre, puerto, rutas, listo, alArrancar, alCerr
         }
       }
     })
-  })
+  }
+
+  const servidor = TLS_ACTIVO
+    ? crearServidorTls(opcionesServidor(nombre, { exigirCliente: !publico }), atender)
+    : createServer(atender)
 
   servidor.listen(puerto, () => {
-    console.log(`[${nombre}] escuchando en http://localhost:${puerto}`)
+    const modo = TLS_ACTIVO ? (publico ? ' (TLS)' : ' (TLS mutuo)') : ''
+    console.log(`[${nombre}] escuchando en ${ESQUEMA}://localhost:${puerto}${modo}`)
     if (registrar) registro = registrarServicio({ nombre, puerto })
     alArrancar?.()
   })

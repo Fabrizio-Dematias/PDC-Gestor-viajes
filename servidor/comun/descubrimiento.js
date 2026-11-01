@@ -1,5 +1,6 @@
 import { CONFIG, SERVICIOS } from './config.js'
 import { pedirJson } from './pedir.js'
+import { ESQUEMA } from './tls.js'
 
 /**
  * Descubrimiento de servicios, del lado del cliente (Módulo 4).
@@ -189,7 +190,7 @@ export function registrarServicio({ nombre, puerto, version }) {
   const id = process.env.INSTANCIA_ID ?? `${nombre}@${puerto}`
   // Dentro de Docker Compose la dirección que ven los demás no es
   // `localhost`, sino el nombre del servicio: se fija con URL_PROPIA.
-  const url = process.env.URL_PROPIA ?? `http://localhost:${puerto}`
+  const url = process.env.URL_PROPIA ?? `${ESQUEMA}://localhost:${puerto}`
   const ruta = `${CONFIG.registro.url}/api/v1/servicios/${nombre}/${encodeURIComponent(id)}`
 
   let anotado = null

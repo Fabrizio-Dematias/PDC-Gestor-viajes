@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:back": "VITE_API_URL=http://localhost:4000 vite",
     "dev:back:sur": "VITE_API_URL=http://localhost:4000 VITE_AGENCIA_ID=ag-sur vite --port 5174",
+    "dev:back:tls": "VITE_API_URL=https://localhost:4000 TLS=on vite",
     "back": "node --env-file-if-exists=.env servidor/arrancar.mjs",
     "back:vuelos": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/vuelos/index.js",
     "back:hospedaje": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning servidor/hospedaje/index.js",
@@ -24,7 +25,8 @@
     "preview": "vite preview",
     "test": "node pruebas/humo-fallos.mjs",
     "test:back": "node pruebas/humo-backend.mjs",
-    "docs:openapi": "node servidor/agregador/generar-openapi.mjs"
+    "docs:openapi": "node servidor/agregador/generar-openapi.mjs",
+    "tls:certs": "node servidor/generar-certificados.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

@@ -64,6 +64,8 @@ setInterval(sincronizar, INTERVALO_SYNC_MS)
 crearServicio({
   nombre: 'nodo-agencia',
   puerto: CONFIG.nodoAgencia.puerto,
+  // Le habla el navegador (la bitácora de cada búsqueda).
+  publico: true,
   listo: () => {
     base.prepare('SELECT 1 FROM registro LIMIT 1').get()
     return { agencia_id: agenciaId }

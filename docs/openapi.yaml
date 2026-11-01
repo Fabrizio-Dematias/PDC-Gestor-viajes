@@ -430,6 +430,12 @@ paths:
             "application/json":
               schema:
                 "$ref": "#/components/schemas/Error"
+        "429":
+          description: "Cinco códigos inválidos seguidos: bloqueado 15 minutos (`motivo: demasiados_intentos`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
   "/auth/login":
     post:
       tags:
@@ -466,6 +472,12 @@ paths:
                 "$ref": "#/components/schemas/Error"
         "403":
           description: "Falta verificar el email (`motivo: email_no_verificado`)."
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Error"
+        "429":
+          description: "Cinco intentos fallidos seguidos: la cuenta queda bloqueada 15 minutos (`motivo: demasiados_intentos`, cabecera `Retry-After`)."
           content:
             "application/json":
               schema:

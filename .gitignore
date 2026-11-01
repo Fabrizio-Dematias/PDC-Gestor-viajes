@@ -29,3 +29,6 @@ servidor/*/datos/
 # Credenciales reales — .env.example queda versionado como plantilla,
 # esto no. Ver .env.example para qué variables hacen falta.
 .env
+
+# Certificados de TLS (npm run tls:certs): incluyen claves privadas.
+certs/
