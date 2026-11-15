@@ -26,6 +26,13 @@ se sumaron los dos módulos de la materia que siguieron a la arquitectura:
   (`TLS=on`), verificación del certificado de Postgres, límite de intentos
   de login, y la prueba de recuperación ante fallos
   (`docs/recuperacion-ante-fallos.md`).
+- **Módulo 6, patrones y escalabilidad**
+  (`docs/modulo-6-patrones-escalabilidad.md`): fachada, proxy y
+  adaptador; circuit breaker y observador distribuido; réplicas con
+  balanceo de carga y failover.
+
+La documentación de cada módulo, con su entrega y su tag, está indexada
+en `docs/README.md`.
 
 El front funciona en dos modos. Sin backend habla con un servidor
 simulado en memoria que cumple el mismo contrato; con backend habla con
@@ -224,6 +231,8 @@ vertical vuelve con `cacheado: true` en vez de quedar `unavailable`
 
 ```
 docs/
+  README.md                  Índice de la documentación por módulo
+  modulo-1-arquitectura.md   El sistema en las vistas 4+1
   manual-de-funcionamiento.md Cómo levantar, usar y diagnosticar el sistema
   contrato-agregador.md      El contrato, escrito antes que el código
   openapi.yaml               El contrato en formato máquina (generado)
@@ -233,6 +242,7 @@ docs/
   modulo-3-comunicacion.md   Síncrono/asíncrono, semántica de entrega,
                              concurrencia (reservas)
   modulo-4-middleware.md     Middleware, contratos, registro de servicios
+  modulo-6-patrones-escalabilidad.md Patrones, réplicas, balanceo y monitorización
   informe-amenazas.md        Qué se protegió y de qué; cómo activar TLS
   recuperacion-ante-fallos.md Mecanismos de recuperación y su prueba
   arquitectura-multi-nodo.md Los tres tipos de nodo y por qué
@@ -338,10 +348,12 @@ actualizan solos.
 | 3 ✓ | **Hecho.** Login real: email + verificación para clientes, usuario/contraseña aparte para administradores, JWT firmado por el agregador (`docs/contrato-agregador.md` §10) |
 | 4 ✓ | **Hecho.** Proveedor externo: Duffel integrado y probado contra la API real (`PROVEEDOR=duffel`); Amadeus Self-Service cerró en julio de 2026. Ver `docs/proveedor-externo.md` |
 | 5 ✓ | **Hecho.** Circuit breaker y caché en Redis (§9), `docker compose` por nodo (`docs/arquitectura-multi-nodo.md`) |
-| 6 | Panel de admin: ya lee y escribe contra el backend, y ya gestiona administradores y permisos; falta mostrar la auditoría |
+| 6 ✓ | **Hecho.** Panel de admin: verticales por agencia, servicios del sistema, administradores y permisos, y la auditoría a la vista |
 | 7 ✓ | **Hecho.** Reservas con concurrencia y canal asíncrono (`docs/modulo-3-comunicacion.md`) |
 | M4 ✓ | **Hecho.** Registro de servicios, health checks, versionado y OpenAPI (`docs/modulo-4-middleware.md`) |
 | M5 ✓ | **Hecho.** TLS y TLS mutuo entre componentes, límite de intentos de login, informe de amenazas y prueba de recuperación (`docs/informe-amenazas.md`) |
+| M6 ✓ | **Hecho.** Patrones y escalabilidad (`docs/modulo-6-patrones-escalabilidad.md`) |
 
-La auditoría de cambios de configuración (Módulo 5) ya está: se registra
-en `usuarios.db` y se consulta en `GET /api/admin/auditoria`.
+La auditoría de cambios de configuración (Módulo 5) se registra en el
+Postgres central, se consulta en `GET /api/admin/auditoria` y se ve en el
+panel de administración.

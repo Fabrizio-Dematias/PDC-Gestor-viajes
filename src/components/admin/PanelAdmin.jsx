@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { VERTICALES } from '../../dominio/verticales.jsx'
 import { useSesion } from '../../estado/sesion.js'
 import PanelAdministradores from './PanelAdministradores.jsx'
+import PanelAuditoria from './PanelAuditoria.jsx'
 import PanelServicios from './PanelServicios.jsx'
 
 export default function PanelAdmin({ config, onToggle, agregadas }) {
@@ -84,6 +85,8 @@ export default function PanelAdmin({ config, onToggle, agregadas }) {
       )}
 
       {permisos.includes('gestion_usuarios') && <PanelAdministradores />}
+
+      <PanelAuditoria />
     </div>
   )
 }

@@ -188,6 +188,7 @@ empezar (el agregador contesta antes que los demás).
 | Las tres secciones dicen "no disponible" | El agregador anda pero los servicios no | `curl localhost:4000/salud`; revisar la terminal de `npm run back` |
 | "Ninguna instancia de este servicio está lista" | El servicio está apagado o no pasa su `/salud/ready` | `npm run back:<servicio>`; mirar `/admin` |
 | `usuarios` "no listo" / no se puede loguear | Postgres no contesta (Docker apagado o Supabase sin conexión) | `npm run infra:up`; revisar los `PG*` del `.env` |
+| `usuarios` reintenta con `XX000` | Supabase no responde (proyecto pausado) | Usar el Postgres local sin tocar el `.env`: `PGHOST=localhost PGDATABASE=gestor_viajes PGUSER=gestor PGPASSWORD=gestor PGSSL=false npm run back` |
 | Login falla con un token viejo | Sesión de otro entorno guardada en el navegador | Se descarta sola al primer 401; volver a loguearse |
 | "Address already in use" | Quedó un proceso de una corrida anterior | `lsof -tiTCP:<puerto> -sTCP:LISTEN \| xargs kill` |
 | La reserva dice "sin cupo" | Se agotaron los asientos de ese vuelo (hay 100–300 por vuelo) | Probar otro vuelo u otra fecha |
